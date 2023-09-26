@@ -35,6 +35,7 @@ public class TopicsTest : MonoBehaviour
 
     public async Task Main()
     {
+        textAreaString = "LOADING...";
         var authToken = ReadAuthToken();
 
         // Set up the client
@@ -46,16 +47,16 @@ public class TopicsTest : MonoBehaviour
         try
         {
             cts = new CancellationTokenSource();
-            //cts.CancelAfter(10_000);
 
             // Subscribe and begin receiving messages
-            var subscriptionTask = Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 var subscribeResponse = await topicClient.SubscribeAsync(cacheName, TopicName);
                 switch (subscribeResponse)
                 {
                     case TopicSubscribeResponse.Subscription subscription:
                         Debug.Log("Successfully subscribed to topic " + TopicName);
+                        textAreaString = "";
                         try
                         {
                             var cancellableSubscription = subscription.WithCancellation(cts.Token);
@@ -74,6 +75,7 @@ public class TopicsTest : MonoBehaviour
                                     case TopicMessage.Error error:
                                         Debug.LogError(String.Format("Received error message from topic: {0}",
                                             error.Message));
+                                        textAreaString += "Error receiving message, cancelling...";
                                         cts.Cancel();
                                         break;
                                 }
@@ -88,39 +90,15 @@ public class TopicsTest : MonoBehaviour
                         break;
                     case TopicSubscribeResponse.Error error:
                         Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
+                        textAreaString += "Error trying to connect to chat, cancelling...";
                         cts.Cancel();
                         break;
                 }
             });
-
-            // Publish messages
-            var publishTask = Task.Run(async () =>
-            {
-                var messageCounter = 0;
-                while (!cts.IsCancellationRequested)
-                {
-                    var publishResponse =
-                        await topicClient.PublishAsync(cacheName, TopicName, $"message {messageCounter}");
-                    switch (publishResponse)
-                    {
-                        case TopicPublishResponse.Success:
-                            Debug.Log("Successfully published message " + messageCounter);
-                            break;
-                        case TopicPublishResponse.Error error:
-                            Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
-                            cts.Cancel();
-                            break;
-                    }
-
-                    await Task.Delay(1_000);
-                    messageCounter++;
-                }
-            });
-
-            await Task.WhenAll(subscriptionTask, publishTask);
         }
         finally
         {
+            Debug.Log("Disposing cache and topic clients...");
             client.Dispose();
             topicClient.Dispose();
         }
@@ -129,7 +107,29 @@ public class TopicsTest : MonoBehaviour
     public void PublishString(string message)
     {
         message = clientName + ": " + message;
-        PublishMessage(message);
+        Task.Run(async () =>
+        {
+            Debug.Log("About to publish message: " + message);
+            if (cts != null && !cts.IsCancellationRequested)
+            {
+                var publishResponse =
+                    await topicClient.PublishAsync(cacheName, TopicName, message);
+                switch (publishResponse)
+                {
+                    case TopicPublishResponse.Success:
+                        Debug.Log("Successfully published message " + message);
+                        break;
+                    case TopicPublishResponse.Error error:
+                        Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
+                        cts.Cancel();
+                        break;
+                }
+            }
+            else
+            {
+                Debug.LogError("Could not publish message since cancellation already occurred");
+            }
+        });
         inputTextField.text = "";
         inputTextField.ActivateInputField();
     }
@@ -137,30 +137,6 @@ public class TopicsTest : MonoBehaviour
     public void SendMessage()
     {
         PublishString(inputTextField.text);
-    }
-
-    private async void PublishMessage(string message)
-    {
-        Debug.Log("About to publish message: " + message);
-        if (cts != null && !cts.IsCancellationRequested)
-        {
-            var publishResponse =
-                await topicClient.PublishAsync(cacheName, TopicName, message);
-            switch (publishResponse)
-            {
-                case TopicPublishResponse.Success:
-                    Debug.Log("Successfully published message " + message);
-                    break;
-                case TopicPublishResponse.Error error:
-                    Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
-                    cts.Cancel();
-                    break;
-            }
-        }
-        else
-        {
-            Debug.LogError("Could not publish message since cancellation already occurred");
-        }
     }
 
     private ICredentialProvider ReadAuthToken()
@@ -171,17 +147,16 @@ public class TopicsTest : MonoBehaviour
         }
         catch (InvalidArgumentException)
         {
+            Debug.Log("Could not get auth token from environment variable");
         }
 
         string authToken = "ADD_YOUR_TOKEN_HERE";
         StringMomentoTokenProvider? authProvider = null;
         try
         {
-            Debug.LogWarning("test1");
             // TODO: this call seems to never return with the default "ADD_YOUR_TOKEN_HERE" value of authToken
             // it should throw an Exception but doesn't appear to right now...
-            authProvider = new StringMomentoTokenProvider(authToken); 
-            Debug.LogWarning("test2");
+            authProvider = new StringMomentoTokenProvider(authToken);
         }
         catch (InvalidArgumentException e)
         {
@@ -218,7 +193,7 @@ public class TopicsTest : MonoBehaviour
         messagingCanvas.SetActive(true);
         inputTextField.ActivateInputField();
 
-        Main();
+        Task.Run(async () => { await Main(); });
     }
 
     public void OnStartPressed()
@@ -230,6 +205,14 @@ public class TopicsTest : MonoBehaviour
     void Update()
     {
         textArea.text = textAreaString;
+
+        if (Input.GetKeyDown(KeyCode.Return))
+        {
+            if (inputTextField.isFocused)
+                SendMessage();
+            else if (nameInputTextField.isFocused)
+                OnStartPressed();
+        }
     }
 
     private void OnDestroy()

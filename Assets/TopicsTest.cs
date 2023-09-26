@@ -12,7 +12,6 @@ using System.Threading;
 public class TopicsTest : MonoBehaviour
 {
     private const string AuthTokenEnvVar = "MOMENTO_AUTH_TOKEN";
-    private const string CacheNameEnvVar = "MOMENTO_CACHE_NAME";
     private const string TopicName = "example-topic";
     private const string cacheName = "Unity-Topics-Cache";
     private CancellationTokenSource cts = null;
@@ -27,6 +26,8 @@ public class TopicsTest : MonoBehaviour
     private string clientName = "Client";
     private string textAreaString = "";
 
+    private bool loading = false;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -36,6 +37,7 @@ public class TopicsTest : MonoBehaviour
     public async Task Main()
     {
         textAreaString = "LOADING...";
+        loading = true;
         var authToken = ReadAuthToken();
 
         // Set up the client
@@ -57,6 +59,7 @@ public class TopicsTest : MonoBehaviour
                     case TopicSubscribeResponse.Subscription subscription:
                         Debug.Log("Successfully subscribed to topic " + TopicName);
                         textAreaString = "";
+                        loading = false;
                         try
                         {
                             var cancellableSubscription = subscription.WithCancellation(cts.Token);
@@ -206,7 +209,9 @@ public class TopicsTest : MonoBehaviour
     {
         textArea.text = textAreaString;
 
-        if (Input.GetKeyDown(KeyCode.Return))
+        inputTextField.readOnly = loading;
+
+        if (!loading && Input.GetKeyDown(KeyCode.Return))
         {
             if (inputTextField.isFocused)
                 SendMessage();

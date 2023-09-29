@@ -8,6 +8,7 @@ using Momento.Sdk.Responses;
 using System.Threading.Tasks;
 using System;
 using System.Threading;
+using UnityEngine.EventSystems;
 
 public class TopicsTest : MonoBehaviour
 {
@@ -22,6 +23,8 @@ public class TopicsTest : MonoBehaviour
     public TextMeshProUGUI textArea;
     public TMP_InputField inputTextField;
     public TMP_InputField nameInputTextField;
+
+    public EventSystem eventSystem;
 
     private string clientName = "Client";
     private string textAreaString = "";
@@ -213,9 +216,9 @@ public class TopicsTest : MonoBehaviour
 
         if (!loading && Input.GetKeyDown(KeyCode.Return))
         {
-            if (inputTextField.isFocused)
+            if (eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
                 SendMessage();
-            else if (nameInputTextField.isFocused)
+            else if (eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
                 OnStartPressed();
         }
     }

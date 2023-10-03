@@ -18,16 +18,29 @@ public class TopicsTest : MonoBehaviour
     private CancellationTokenSource cts = null;
     private ITopicClient topicClient = null;
 
+    // keep a reference to the chat UI canvas so we can unhide it after the user
+    // types in their name
     public GameObject messagingCanvas;
+
+    // keep a reference to the name UI canvas so we can hide it after the user
+    // types in their name
     public GameObject nameCanvas;
+
+    // this is where we'll show the incoming subscribed Topics messages
     public TextMeshProUGUI textArea;
+
+    // the main chat input field
     public TMP_InputField inputTextField;
+
+    // the name input field
     public TMP_InputField nameInputTextField;
 
     public EventSystem eventSystem;
 
     private string clientName = "Client";
-    private string textAreaString = "";
+
+    // helper variable to update the main text area from the background thread
+    private string textAreaString = ""; 
 
     private bool loading = false;
 
@@ -110,9 +123,9 @@ public class TopicsTest : MonoBehaviour
         }
     }
 
-    public void PublishString(string message)
+    public void PublishMessage()
     {
-        message = clientName + ": " + message;
+        string message = clientName + ": " + inputTextField.text;
         Task.Run(async () =>
         {
             Debug.Log("About to publish message: " + message);
@@ -138,11 +151,6 @@ public class TopicsTest : MonoBehaviour
         });
         inputTextField.text = "";
         inputTextField.ActivateInputField();
-    }
-
-    public void SendMessage()
-    {
-        PublishString(inputTextField.text);
     }
 
     private ICredentialProvider ReadAuthToken()
@@ -190,10 +198,10 @@ public class TopicsTest : MonoBehaviour
         }
     }
 
-    public void OnNameEntered(string name)
+    public void SetName()
     {
-        Debug.Log("User entered name " + name);
-        clientName = name;
+        Debug.Log("User entered name " + nameInputTextField.text);
+        clientName = nameInputTextField.text;
 
         nameCanvas.SetActive(false);
         messagingCanvas.SetActive(true);
@@ -202,14 +210,10 @@ public class TopicsTest : MonoBehaviour
         Task.Run(async () => { await Main(); });
     }
 
-    public void OnStartPressed()
-    {
-        OnNameEntered(nameInputTextField.text);
-    }
-
     // Update is called once per frame
     void Update()
     {
+        // Update UI text on the main thread
         textArea.text = textAreaString;
 
         inputTextField.readOnly = loading;
@@ -217,9 +221,9 @@ public class TopicsTest : MonoBehaviour
         if (!loading && Input.GetKeyDown(KeyCode.Return))
         {
             if (eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
-                SendMessage();
+                PublishMessage();
             else if (eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
-                OnStartPressed();
+                SetName();
         }
     }
 

@@ -21,16 +21,26 @@ public class TopicsTestCoroutine : MonoBehaviour
     private ICacheClient client = null;
     private TopicSubscribeResponse.Subscription subscription = null;
 
+    // keep a reference to the chat UI canvas so we can unhide it after the user
+    // types in their name
     public GameObject messagingCanvas;
+
+    // keep a reference to the name UI canvas so we can hide it after the user
+    // types in their name
     public GameObject nameCanvas;
+
+    // this is where we'll show the incoming subscribed Topics messages
     public TextMeshProUGUI textArea;
+
+    // the main chat input field
     public TMP_InputField inputTextField;
+
+    // the name input field
     public TMP_InputField nameInputTextField;
 
     public EventSystem eventSystem;
 
     private string clientName = "Client";
-    private string textAreaString = "";
 
     private bool loading = false;
 
@@ -44,7 +54,7 @@ public class TopicsTestCoroutine : MonoBehaviour
     {
         try
         {
-            textAreaString = "LOADING...";
+            textArea.text = "LOADING...";
             loading = true;
             var authToken = ReadAuthToken();
 
@@ -72,7 +82,7 @@ public class TopicsTestCoroutine : MonoBehaviour
             case TopicSubscribeResponse.Subscription:
                 subscription = (TopicSubscribeResponse.Subscription)subscribeResponse;
                 Debug.Log("Successfully subscribed to topic " + TopicName);
-                textAreaString = "";
+                textArea.text = "";
                 loading = false;
 
                 try
@@ -90,12 +100,12 @@ public class TopicsTestCoroutine : MonoBehaviour
                             case TopicMessage.Text text:
                                 Debug.Log(String.Format("Received string message from topic: {0}",
                                     text.Value));
-                                textAreaString += text.Value + "\n";
+                                textArea.text += text.Value + "\n";
                                 break;
                             case TopicMessage.Error error:
                                 Debug.LogError(String.Format("Received error message from topic: {0}",
                                     error.Message));
-                                textAreaString += "Error receiving message, cancelling...";
+                                textArea.text += "Error receiving message, cancelling...";
                                 cts.Cancel();
                                 break;
                         }
@@ -115,12 +125,13 @@ public class TopicsTestCoroutine : MonoBehaviour
                 }
                 finally
                 {
+                    Debug.Log("Subscription to the Topic has been cancelled");
                 }
 
                 break;
             case TopicSubscribeResponse.Error error:
                 Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
-                textAreaString += "Error trying to connect to chat, cancelling...";
+                textArea.text += "Error trying to connect to chat, cancelling...";
                 cts.Cancel();
                 break;
         }
@@ -128,20 +139,15 @@ public class TopicsTestCoroutine : MonoBehaviour
         Dispose();
     }
 
-    public void PublishString(string message)
+    public void PublishMessage()
     {
-        message = clientName + ": " + message;
-        PostMessage(message);
+        string message = clientName + ": " + inputTextField.text;
+        DoPublishMessageAsync(message);
         inputTextField.text = "";
         inputTextField.ActivateInputField();
     }
 
-    public void SendMessage()
-    {
-        PublishString(inputTextField.text);
-    }
-
-    private async void PostMessage(string message)
+    private async void DoPublishMessageAsync(string message)
     {
         Debug.Log("About to publish message: " + message);
         if (cts != null && !cts.IsCancellationRequested)
@@ -210,10 +216,10 @@ public class TopicsTestCoroutine : MonoBehaviour
         }
     }
 
-    public void OnNameEntered(string name)
+    public void SetName()
     {
-        Debug.Log("User entered name " + name);
-        clientName = name;
+        Debug.Log("User entered name " + nameInputTextField.text);
+        clientName = nameInputTextField.text;
 
         nameCanvas.SetActive(false);
         messagingCanvas.SetActive(true);
@@ -222,24 +228,17 @@ public class TopicsTestCoroutine : MonoBehaviour
         Main();
     }
 
-    public void OnStartPressed()
-    {
-        OnNameEntered(nameInputTextField.text);
-    }
-
     // Update is called once per frame
     void Update()
     {
-        textArea.text = textAreaString;
-
         inputTextField.readOnly = loading;
 
         if (!loading && Input.GetKeyDown(KeyCode.Return))
         {
             if (eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
-                SendMessage();
+                PublishMessage();
             else if (eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
-                OnStartPressed();
+                SetName();
         }
     }
 

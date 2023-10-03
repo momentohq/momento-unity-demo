@@ -11,7 +11,7 @@ How to test:
 4. Install Unity 2022.3.9f1
 5. Open the project
 6. Import TMP Essentials: 
-   - If you hit Play, it should prompt you to add TextMesh Pro essentials
+   - If you hit Play, it should prompt you to add TextMesh Pro essentials; you'll have to stop Play mode in order to import
    - Or, click Window --> TextMeshPro --> Import TMP Essential Resources
 7. Hit the play button to run inside the Unity Editor
 8. To duplicate the screen recording, build the project via File --> Build Settings...

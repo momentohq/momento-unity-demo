@@ -10,8 +10,11 @@ How to test:
 3. Ensure the `MOMENTO_AUTH_TOKEN` environment variable is set
 4. Install Unity 2022.3.9f1
 5. Open the project
-6. Hit the play button to run inside the Unity Editor
-7. To duplicate the screen recording, build the project via File --> Build Settings...
+6. Import TMP Essentials: 
+   - If you hit Play, it should prompt you to add TextMesh Pro essentials
+   - Or, click Window --> TextMeshPro --> Import TMP Essential Resources
+7. Hit the play button to run inside the Unity Editor
+8. To duplicate the screen recording, build the project via File --> Build Settings...
    1. Add Open Scenes (if necessary)
    2. Build
    3. Open the executable twice

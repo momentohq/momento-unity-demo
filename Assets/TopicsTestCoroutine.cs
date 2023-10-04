@@ -186,8 +186,6 @@ public class TopicsTestCoroutine : MonoBehaviour
         StringMomentoTokenProvider? authProvider = null;
         try
         {
-            // TODO: this call seems to never return with the default "ADD_YOUR_TOKEN_HERE" value of authToken
-            // it should throw an Exception but doesn't appear to right now...
             authProvider = new StringMomentoTokenProvider(authToken);
         }
         catch (InvalidArgumentException e)

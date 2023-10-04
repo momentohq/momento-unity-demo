@@ -8,12 +8,12 @@ https://github.com/momentohq/momento-unity-demo/assets/276325/91f9d9d2-760e-413f
 1. Install Unity 2022.3.9f1
 2. Clone this repository
 3. Download the latest MomentoSdkUnity-x.y.z.zip from https://github.com/momentohq/client-sdk-dotnet/releases and extract its contents into the folder `Assets/MomentoSdkUnity/`
-4. Ensure the `MOMENTO_AUTH_TOKEN` environment variable is set
+4. Ensure the `MOMENTO_AUTH_TOKEN` environment variable is set, or copy and paste your auth token into `Assets/TopicsTest.cs` (or `Assets/TopicsTestCoroutine.cs`) replacing `ADD_YOUR_TOKEN_HERE` in the `ReadAuthToken()` function (hard-coding your auth token in code is not recommended but can be used for testing purposes if necessary)
 5. Start Unity and open this folder
 6. Open the `MomentTopicsDemo.unity` scene file
 6. Import TMP Essentials: 
    - Once you open the scene file, it should prompt you to import TMP essentials
-   - or, if you hit Play, it should prompt you to add TextMesh Pro essentials; you'll have to stop Play mode in order to import
+   - Or, if you hit Play, it should prompt you to add TextMesh Pro essentials; you'll have to stop Play mode in order to import
    - Or, click Window --> TextMeshPro --> Import TMP Essential Resources
 7. Hit the play button to run inside the Unity Editor
 8. To duplicate the screen recording above, build the project via File --> Build Settings...

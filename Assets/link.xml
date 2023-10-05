@@ -1,0 +1,6 @@
+<linker>
+    <assembly fullname="AssemblyCSharp">
+        <type fullname="Momento.Sdk.Auth.Base64DecodedV1Token" preserve="all"/>
+        <type fullname="Momento.Sdk.Internal.Claims" preserve="all"/>
+    </assembly>
+</linker>

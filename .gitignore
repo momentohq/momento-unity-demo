@@ -74,7 +74,3 @@ crashlytics-build.properties
 # MomentoSdkUnity
 /[Aa]ssets/[Mm]omento[Ss]dk[Uu]nity
 /[Aa]ssets/[Mm]omento[Ss]dk[Uu]nity.meta
-
-# TextMesh Pro files
-[Aa]ssets/TextMesh*Pro/
-[Aa]ssets/TextMesh*Pro.meta

@@ -20,5 +20,5 @@ https://github.com/momentohq/momento-unity-demo/assets/276325/91f9d9d2-760e-413f
 
 # Notes
 - Tested with two Windows builds of the Unity project + subscribing/publishing to the Topic in the Momento Console website
-- There are two example scripts, `TopicsTest.cs` and `TopicsTestCoroutine.cs`, where the former utilizes `Task.Run()` to run the subscription to the Momento Topic in a background thread, while the latter utilizes Unity Coroutines to run the subscription asyncronously in the main thread.
+- There are two example scripts, `TopicsTest.cs` and `TopicsTestCoroutine.cs`, where the former utilizes `Task.Run()` to run the subscription to the Momento Topic in a background thread, while the latter utilizes Unity Coroutines to run the subscription asyncronously in the main thread. If you want to use `TopicsTestCoroutine.cs`, make sure to enable that script, disable `TopicsTest.cs` and finally update the "On Click" callbacks for the "Start" and "Send" buttons.
 - WebGL builds currently do not work.

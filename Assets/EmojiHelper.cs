@@ -39,6 +39,12 @@ public class EmojiHelper : MonoBehaviour
             newButton.GetComponent<Button>().onClick.AddListener(() =>
             {
                 inputTextField.text += emojiSprite;
+
+                // when the user clicks the button, we need to reset the focus
+                // to be on the input text field and also reset its caret to the
+                // end of its line
+                inputTextField.ActivateInputField();
+                inputTextField.MoveToEndOfLine(false, false);
             });
         }
     }

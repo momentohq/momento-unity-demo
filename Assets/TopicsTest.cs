@@ -125,7 +125,7 @@ public class TopicsTest : MonoBehaviour
 
     public void PublishMessage()
     {
-        string message = clientName + ": " + inputTextField.text;
+        string message = "<b>" + clientName + "</b>: " + inputTextField.text;
         Task.Run(async () =>
         {
             Debug.Log("About to publish message: " + message);
@@ -218,10 +218,17 @@ public class TopicsTest : MonoBehaviour
 
         if (!loading && Input.GetKeyDown(KeyCode.Return))
         {
-            if (eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
+            // make sure the input field is focused on and it's not empty...
+            if ((eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
+                && inputTextField.text != "")
+            {
                 PublishMessage();
-            else if (eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
+            }
+            else if ((eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
+                     && nameInputTextField.text != "")
+            {
                 SetName();
+            }
         }
     }
 

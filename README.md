@@ -2,7 +2,7 @@
 
 Adds a minimally working chat demo of Momento's Topics using Unity 2022.3.9f1.
 
-https://github.com/momentohq/momento-unity-demo/assets/276325/91f9d9d2-760e-413f-abb6-d0d3ed3cbfac
+https://github.com/momentohq/momento-unity-demo/assets/276325/ea690fec-def0-4030-a189-97ce3e4aa20d
 
 # Setup
 1. Install Unity 2022.3.9f1

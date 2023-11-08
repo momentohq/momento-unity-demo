@@ -9,12 +9,20 @@ using System.Threading.Tasks;
 using System;
 using System.Threading;
 using UnityEngine.EventSystems;
+using System.Collections;
+using UnityEngine.Networking;
+
+public struct TokenVendingMachineResponse
+{
+    public string authToken;
+    public double expiresAt;
+}
 
 public class TopicsTestTokenVendingMachine : MonoBehaviour
 {
     private const string AuthTokenEnvVar = "MOMENTO_AUTH_TOKEN";
     private const string TopicName = "example-topic";
-    private const string cacheName = "Unity-Topics-Cache";
+    private const string cacheName = "default-cache";
     private CancellationTokenSource cts = null;
     private ITopicClient topicClient = null;
 
@@ -50,17 +58,13 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
-    public async Task Main()
+    public async Task Main(ICredentialProvider authProvider)
     {
-        textAreaString = "LOADING...";
-        loading = true;
-        var authToken = ReadAuthToken();
-
         // Set up the client
         using ICacheClient client =
-            new CacheClient(Configurations.Laptop.V1(), authToken, TimeSpan.FromSeconds(60));
+            new CacheClient(Configurations.Laptop.V1(), authProvider, TimeSpan.FromSeconds(60));
         await EnsureCacheExistsAsync(client, cacheName);
-        topicClient = new TopicClient(TopicConfigurations.Laptop.latest(), authToken);
+        topicClient = new TopicClient(TopicConfigurations.Laptop.latest(), authProvider);
 
         try
         {
@@ -153,29 +157,50 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
         inputTextField.ActivateInputField();
     }
 
-    private ICredentialProvider ReadAuthToken()
+    private IEnumerator GetTokenFromVendingMachine(string name)
     {
-        try
-        {
-            return new EnvMomentoTokenProvider(AuthTokenEnvVar);
-        }
-        catch (InvalidArgumentException)
-        {
-            Debug.Log("Could not get auth token from environment variable");
-        }
+        textAreaString = "LOADING...";
+        loading = true;
 
-        string authToken = "ADD_YOUR_TOKEN_HERE";
-        StringMomentoTokenProvider? authProvider = null;
-        try
-        {
-            authProvider = new StringMomentoTokenProvider(authToken);
-        }
-        catch (InvalidArgumentException e)
-        {
-            Debug.LogError("Invalid auth token provided! " + e);
-        }
+        // Set your Token Vending Machine URL here. For more information, see:
+        // https://github.com/momentohq/client-sdk-javascript/tree/main/examples/nodejs/token-vending-machine
+        string uri = "https://9jkmukxn68.execute-api.us-west-2.amazonaws.com/prod?name=" + UnityWebRequest.EscapeURL(name);
 
-        return authProvider;
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
+        {
+            webRequest.SetRequestHeader("Cache-Control", "no-cache");
+            Debug.Log("Sending request to token vending machine...");
+            yield return webRequest.SendWebRequest();
+
+            if (webRequest.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log("Got result:" + webRequest.downloadHandler.text);
+
+                TokenVendingMachineResponse response = JsonUtility.FromJson<TokenVendingMachineResponse>(webRequest.downloadHandler.text);
+
+                Debug.Log("authToken: " + response.authToken);
+
+                DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds((long)response.expiresAt);
+                Debug.Log("expiresAt: " + response.expiresAt + " (" + dateTimeOffset.ToLocalTime() + ")");
+
+                StringMomentoTokenProvider? authProvider = null;
+                try
+                {
+                    authProvider = new StringMomentoTokenProvider(response.authToken);
+                }
+                catch (InvalidArgumentException e)
+                {
+                    Debug.LogError("Invalid auth token provided! " + e);
+                }
+
+                Task.Run(async () => { await Main(authProvider); });
+            } 
+            else
+            {
+                Debug.LogError("Error trying to get token from vending machine: " + webRequest.error);
+                textAreaString = "Error connecting to token vending machine: " + webRequest.error;
+            }
+        }
     }
 
     private async Task EnsureCacheExistsAsync(ICacheClient client, string cacheName)
@@ -205,7 +230,7 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
         messagingCanvas.SetActive(true);
         inputTextField.ActivateInputField();
 
-        Task.Run(async () => { await Main(); });
+        StartCoroutine(GetTokenFromVendingMachine(clientName));
     }
 
     // Update is called once per frame

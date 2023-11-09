@@ -8,4 +8,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/MomentoTopicsDemo.unity
     guid: 9fc0d4010bbf28b4594072e72b8655ab
+  - enabled: 0
+    path: Assets/Scenes/MomentoTopicsDemo-TokenVendingMachine.unity
+    guid: 8051533fd4bd2d046b2110b99bd0f4f8
+  - enabled: 0
+    path: Assets/Scenes/MomentoTopicsDemo-Coroutine.unity
+    guid: 85eac99a2fe876e49aaf6a92d61ae939
   m_configObjects: {}

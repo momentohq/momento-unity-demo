@@ -91,9 +91,10 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
                                         Debug.Log("Received unexpected binary message from topic.");
                                         break;
                                     case TopicMessage.Text text:
-                                        Debug.Log(String.Format("Received string message from topic: {0}",
-                                            text.Value));
-                                        textAreaString += text.Value + "\n";
+                                        Debug.Log(String.Format("Received string message from topic: {0} (with tokenId {1})",
+                                            text.Value, text.TokenId));
+                                        // Notice how we use the TokenId as the username in the chat
+                                        textAreaString += "<b>" + text.TokenId + "</b>: " + text.Value + "\n";
                                         break;
                                     case TopicMessage.Error error:
                                         Debug.LogError(String.Format("Received error message from topic: {0}",
@@ -129,7 +130,10 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
 
     public void PublishMessage()
     {
-        string message = "<b>" + clientName + "</b>: " + inputTextField.text;
+        // Unlike the other examples, because we're using the Token Vending Machine,
+        // we now no longer need to send the user's name in the message since all
+        // subscribers will receive the publishers' names via the message's TokenId.
+        string message = inputTextField.text;
         Task.Run(async () =>
         {
             Debug.Log("About to publish message: " + message);

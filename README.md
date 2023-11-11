@@ -5,7 +5,7 @@ Adds a minimally working chat demo of Momento's Topics using Unity 2022.3.9f1.
 # Setup
 1. Install Unity 2022.3.9f1
 2. Clone this repository
-3. Download the latest MomentoSdkUnity-x.y.z.zip from https://github.com/momentohq/client-sdk-dotnet/releases and extract its contents into the folder `Assets/MomentoSdkUnity/`
+3. Download the latest MomentoSdkUnity-x.y.z.zip from https://github.com/momentohq/client-sdk-dotnet/releases and extract its contents into the folder `Assets/MomentoSdkUnity/`. This example demo requires [client-dotnet-sdk release v1.25.0](https://github.com/momentohq/client-sdk-dotnet/releases/tag/v1.25.0), or newer.
 4. Ensure the `MOMENTO_AUTH_TOKEN` environment variable is set, or copy and paste your auth token into `Assets/TopicsTest.cs` (or `Assets/TopicsTestCoroutine.cs`) replacing `ADD_YOUR_TOKEN_HERE` in the `ReadAuthToken()` function (hard-coding your auth token in code is not recommended but can be used for testing purposes if necessary)
 5. Start Unity and open this folder
 6. Open the `MomentTopicsDemo.unity` scene file

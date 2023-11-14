@@ -49,7 +49,7 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
     // such as like https://9jkmukxn68.execute-api.us-west-2.amazonaws.com/prod?name=
     // See the instructions at the following URL for more information:
     // https://github.com/momentohq/client-sdk-javascript/tree/main/examples/nodejs/token-vending-machine
-    public string tokenVendingMachineURL = "REPLACE-with-Token-Vending-Machine-URL";
+    public string tokenVendingMachineURL = "";
 
     public TextMeshProUGUI titleText;
 

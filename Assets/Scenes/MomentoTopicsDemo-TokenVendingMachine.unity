@@ -1769,7 +1769,7 @@ MonoBehaviour:
   inputTextField: {fileID: 1407861295}
   nameInputTextField: {fileID: 1789408045}
   eventSystem: {fileID: 986823302}
-  tokenVendingMachineURL: REPLACE-with-Token-Vending-Machine-URL
+  tokenVendingMachineURL: 
   titleText: {fileID: 1137518391}
 --- !u!1 &986823300
 GameObject:

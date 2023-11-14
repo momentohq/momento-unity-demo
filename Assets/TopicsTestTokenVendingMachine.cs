@@ -44,17 +44,32 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
     public TMP_InputField nameInputTextField;
 
     public EventSystem eventSystem;
+    
+    // The Token Vending Machine URL should be suffixed with "?name="
+    // such as like https://9jkmukxn68.execute-api.us-west-2.amazonaws.com/prod?name=
+    // See the instructions at the following URL for more information:
+    // https://github.com/momentohq/client-sdk-javascript/tree/main/examples/nodejs/token-vending-machine
+    public string tokenVendingMachineURL = "REPLACE-with-Token-Vending-Machine-URL";
+
+    public TextMeshProUGUI titleText;
 
     private string clientName = "Client";
 
     // helper variable to update the main text area from the background thread
-    private string textAreaString = ""; 
+    private string textAreaString = "";
+    private bool error = false;
 
     private bool loading = false;
 
     // Start is called before the first frame update
     void Start()
     {
+        if (tokenVendingMachineURL == "")
+        {
+            Debug.LogError("Token Vending Machine URL is not specified!");
+            titleText.text = "ERROR: Token Vending Machine URL is not specified!\n\nPlease set tokenVendingMachineURL appropriately.";
+            titleText.color = Color.red;
+        }
         nameInputTextField.ActivateInputField();
     }
 
@@ -100,6 +115,7 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
                                         Debug.LogError(String.Format("Received error message from topic: {0}",
                                             error.Message));
                                         textAreaString += "Error receiving message, cancelling...";
+                                        this.error = true;
                                         cts.Cancel();
                                         break;
                                 }
@@ -115,6 +131,7 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
                     case TopicSubscribeResponse.Error error:
                         Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
                         textAreaString += "Error trying to connect to chat, cancelling...";
+                        this.error = true;
                         cts.Cancel();
                         break;
                 }
@@ -168,7 +185,7 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
 
         // Set your Token Vending Machine URL here. For more information, see:
         // https://github.com/momentohq/client-sdk-javascript/tree/main/examples/nodejs/token-vending-machine
-        string uri = "https://9jkmukxn68.execute-api.us-west-2.amazonaws.com/prod?name=" + UnityWebRequest.EscapeURL(name);
+        string uri = tokenVendingMachineURL + UnityWebRequest.EscapeURL(name);
 
         using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
         {
@@ -203,6 +220,7 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
             {
                 Debug.LogError("Error trying to get token from vending machine: " + webRequest.error);
                 textAreaString = "Error connecting to token vending machine: " + webRequest.error;
+                this.error = true;
             }
         }
     }
@@ -242,6 +260,10 @@ public class TopicsTestTokenVendingMachine : MonoBehaviour
     {
         // Update UI text on the main thread
         textArea.text = textAreaString;
+        if (this.error)
+        {
+            textArea.color = Color.red;
+        }
 
         inputTextField.readOnly = loading;
 

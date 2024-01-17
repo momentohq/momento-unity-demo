@@ -11,15 +11,20 @@ using System.Threading;
 using UnityEngine.EventSystems;
 using System.Collections;
 using UnityEngine.Networking;
+using System.Collections.Generic;
+
+[Serializable]
+public class ChatMessageEvent
+{
+    public User user;
+    public string messageType;
+    public string message;
+    public string sourceLanguage;
+    public double timestamp;
+}
 
 public class ModeratedChat : MonoBehaviour
 {
-    private const string AuthTokenEnvVar = "MOMENTO_AUTH_TOKEN";
-    private const string TopicName = "example-topic";
-    private const string cacheName = "default-cache";
-    private CancellationTokenSource cts = null;
-    private ITopicClient topicClient = null;
-
     // keep a reference to the chat UI canvas so we can unhide it after the user
     // types in their name
     public GameObject messagingCanvas;
@@ -55,87 +60,83 @@ public class ModeratedChat : MonoBehaviour
 
     private bool loading = false;
 
+    private List<ChatMessageEvent> chats = new List<ChatMessageEvent>();
+
+    private ITopicClient topicClient = null;
+    private CancellationTokenSource cts = null;
+
     // Start is called before the first frame update
     void Start()
     {
-        if (tokenVendingMachineURL == "")
-        {
-            Debug.LogError("Token Vending Machine URL is not specified!");
-            titleText.text = "ERROR: Token Vending Machine URL is not specified!\n\nPlease set tokenVendingMachineURL appropriately.";
-            titleText.color = Color.red;
-        }
+        //if (tokenVendingMachineURL == "")
+        //{
+        //    Debug.LogError("Token Vending Machine URL is not specified!");
+        //    titleText.text = "ERROR: Token Vending Machine URL is not specified!\n\nPlease set tokenVendingMachineURL appropriately.";
+        //    titleText.color = Color.red;
+        //}
         nameInputTextField.ActivateInputField();
     }
 
     public async Task Main(ICredentialProvider authProvider)
     {
-        // Set up the client
-        using ICacheClient client =
-            new CacheClient(Configurations.Laptop.V1(), authProvider, TimeSpan.FromSeconds(60));
-        await EnsureCacheExistsAsync(client, cacheName);
-        topicClient = new TopicClient(TopicConfigurations.Laptop.latest(), authProvider);
-
         try
         {
-            cts = new CancellationTokenSource();
-
-            // Subscribe and begin receiving messages
-            await Task.Run(async () =>
-            {
-                var subscribeResponse = await topicClient.SubscribeAsync(cacheName, TopicName);
-                switch (subscribeResponse)
+            await MomentoWebApi.SubscribeToTopic(authProvider, "en",
+                message =>
                 {
-                    case TopicSubscribeResponse.Subscription subscription:
-                        Debug.Log("Successfully subscribed to topic " + TopicName);
-                        textAreaString = "";
-                        loading = false;
-                        try
-                        {
-                            var cancellableSubscription = subscription.WithCancellation(cts.Token);
-                            await foreach (var message in cancellableSubscription)
+                    switch (message)
+                    {
+                        case TopicMessage.Binary:
+                            Debug.Log("Received unexpected binary message from topic.");
+                            break;
+                        case TopicMessage.Text text:
+                            try
                             {
-                                switch (message)
-                                {
-                                    case TopicMessage.Binary:
-                                        Debug.Log("Received unexpected binary message from topic.");
-                                        break;
-                                    case TopicMessage.Text text:
-                                        Debug.Log(String.Format("Received string message from topic: {0} (with tokenId {1})",
-                                            text.Value, text.TokenId));
-                                        // Notice how we use the TokenId as the username in the chat
-                                        textAreaString += "<b>" + text.TokenId + "</b>: " + text.Value + "\n";
-                                        break;
-                                    case TopicMessage.Error error:
-                                        Debug.LogError(String.Format("Received error message from topic: {0}",
-                                            error.Message));
-                                        textAreaString += "Error receiving message, cancelling...";
-                                        this.error = true;
-                                        cts.Cancel();
-                                        break;
-                                }
-                            }
-                        }
-                        finally
-                        {
-                            Debug.Log("Disposing subscription to topic " + TopicName);
-                            subscription.Dispose();
-                        }
+                                Debug.Log(String.Format("Received string message from topic: {0} (with tokenId {1})",
+                                text.Value, text.TokenId));
 
-                        break;
-                    case TopicSubscribeResponse.Error error:
-                        Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
-                        textAreaString += "Error trying to connect to chat, cancelling...";
-                        this.error = true;
-                        cts.Cancel();
-                        break;
+                                // TODO: this is returning a null user
+                                ChatMessageEvent chatMessage = JsonUtility.FromJson<ChatMessageEvent>(text.Value);
+
+                                if (chatMessage.messageType == "image")
+                                {
+                                    // TODO
+                                }
+                                else
+                                {
+                                    textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
+                                }
+
+                                chats.Add(chatMessage); // TODO
+                            }
+                            catch (Exception e)
+                            {
+                                Debug.LogError("Exception handling text Topic message: " + e);
+                            }
+
+                            break;
+                        case TopicMessage.Error error:
+                            Debug.LogError(String.Format("Received error message from topic: {0}",
+                            error.Message));
+                            textAreaString += "Error receiving message, cancelling...";
+                            this.error = true;
+                            break;
+                    }
+                },
+                error =>
+                {
+                    Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
+                    textAreaString += "Error trying to connect to chat, cancelling...";
+                    this.error = true;
                 }
-            });
+            );
         }
         finally
         {
-            Debug.Log("Disposing cache and topic clients...");
-            client.Dispose();
-            topicClient.Dispose();
+            // TODO
+            //Debug.Log("Disposing cache and topic clients...");
+            //client.Dispose();
+            //topicClient.Dispose();
         }
     }
 
@@ -145,29 +146,29 @@ public class ModeratedChat : MonoBehaviour
         // we now no longer need to send the user's name in the message since all
         // subscribers will receive the publishers' names via the message's TokenId.
         string message = inputTextField.text;
-        Task.Run(async () =>
-        {
-            Debug.Log("About to publish message: " + message);
-            if (cts != null && !cts.IsCancellationRequested)
-            {
-                var publishResponse =
-                    await topicClient.PublishAsync(cacheName, TopicName, message);
-                switch (publishResponse)
-                {
-                    case TopicPublishResponse.Success:
-                        Debug.Log("Successfully published message " + message);
-                        break;
-                    case TopicPublishResponse.Error error:
-                        Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
-                        cts.Cancel();
-                        break;
-                }
-            }
-            else
-            {
-                Debug.LogError("Could not publish message since cancellation already occurred");
-            }
-        });
+        //Task.Run(async () =>
+        //{
+        //    Debug.Log("About to publish message: " + message);
+        //    if (cts != null && !cts.IsCancellationRequested)
+        //    {
+        //        var publishResponse =
+        //            await topicClient.PublishAsync(cacheName, TopicName, message);
+        //        switch (publishResponse)
+        //        {
+        //            case TopicPublishResponse.Success:
+        //                Debug.Log("Successfully published message " + message);
+        //                break;
+        //            case TopicPublishResponse.Error error:
+        //                Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
+        //                cts.Cancel();
+        //                break;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        Debug.LogError("Could not publish message since cancellation already occurred");
+        //    }
+        //});
         inputTextField.text = "";
         inputTextField.ActivateInputField();
     }
@@ -177,45 +178,37 @@ public class ModeratedChat : MonoBehaviour
         textAreaString = "LOADING...";
         loading = true;
 
-        // Set your Token Vending Machine URL here. For more information, see:
-        // https://github.com/momentohq/client-sdk-javascript/tree/main/examples/nodejs/token-vending-machine
-        string uri = tokenVendingMachineURL + UnityWebRequest.EscapeURL(name);
+        TokenResponse tokenResponse = null;
+        string error = "";
 
-        using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
-        {
-            webRequest.SetRequestHeader("Cache-Control", "no-cache");
-            Debug.Log("Sending request to token vending machine...");
-            yield return webRequest.SendWebRequest();
+        yield return TranslationApi.CreateToken(
+            new User { username = name, id = Guid.NewGuid().ToString() },
+            response => { tokenResponse = response; },
+            _error => { error = _error; }
+        );
 
-            if (webRequest.result == UnityWebRequest.Result.Success)
+        if (tokenResponse != null) {
+            Debug.Log("authToken: " + tokenResponse.token);
+
+            DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds((long)tokenResponse.expiresAtEpoch);
+            Debug.Log("expiresAt: " + tokenResponse.expiresAtEpoch + " (" + dateTimeOffset.ToLocalTime() + ")");
+
+            StringMomentoTokenProvider? authProvider = null;
+            try
             {
-                Debug.Log("Got result:" + webRequest.downloadHandler.text);
-
-                TokenVendingMachineResponse response = JsonUtility.FromJson<TokenVendingMachineResponse>(webRequest.downloadHandler.text);
-
-                Debug.Log("authToken: " + response.authToken);
-
-                DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds((long)response.expiresAt);
-                Debug.Log("expiresAt: " + response.expiresAt + " (" + dateTimeOffset.ToLocalTime() + ")");
-
-                StringMomentoTokenProvider? authProvider = null;
-                try
-                {
-                    authProvider = new StringMomentoTokenProvider(response.authToken);
-                }
-                catch (InvalidArgumentException e)
-                {
-                    Debug.LogError("Invalid auth token provided! " + e);
-                }
-
-                Task.Run(async () => { await Main(authProvider); });
-            } 
-            else
-            {
-                Debug.LogError("Error trying to get token from vending machine: " + webRequest.error);
-                textAreaString = "Error connecting to token vending machine: " + webRequest.error;
-                this.error = true;
+                authProvider = new StringMomentoTokenProvider(tokenResponse.token);
             }
+            catch (InvalidArgumentException e)
+            {
+                Debug.LogError("Invalid auth token provided! " + e);
+            }
+
+            Task.Run(async () => { await Main(authProvider); });
+        } 
+        else
+        {
+            textAreaString = error;
+            this.error = true;
         }
     }
 
@@ -240,6 +233,9 @@ public class ModeratedChat : MonoBehaviour
     public void SetName()
     {
         Debug.Log("User entered name " + nameInputTextField.text);
+
+        // TODO add profanity filter
+
         clientName = nameInputTextField.text;
 
         nameCanvas.SetActive(false);
@@ -280,6 +276,7 @@ public class ModeratedChat : MonoBehaviour
     private void OnDestroy()
     {
         Debug.Log("Cancelling tasks...");
-        cts?.Cancel();
+        //cts?.Cancel();
+        MomentoWebApi.Dispose();
     }
 }

@@ -2,7 +2,6 @@ using UnityEngine;
 using TMPro;
 using Momento.Sdk;
 using Momento.Sdk.Auth;
-using Momento.Sdk.Config;
 using Momento.Sdk.Exceptions;
 using Momento.Sdk.Responses;
 using System.Threading.Tasks;
@@ -10,18 +9,7 @@ using System;
 using System.Threading;
 using UnityEngine.EventSystems;
 using System.Collections;
-using UnityEngine.Networking;
 using System.Collections.Generic;
-
-[Serializable]
-public class ChatMessageEvent
-{
-    public User user;
-    public string messageType;
-    public string message;
-    public string sourceLanguage;
-    public double timestamp;
-}
 
 public class ModeratedChat : MonoBehaviour
 {
@@ -58,7 +46,7 @@ public class ModeratedChat : MonoBehaviour
     private string textAreaString = "";
     private bool error = false;
 
-    private bool loading = false;
+    private bool messageInputReadOnly = false;
 
     private List<ChatMessageEvent> chats = new List<ChatMessageEvent>();
 
@@ -77,11 +65,30 @@ public class ModeratedChat : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
+    void SetLatestChats(LatestChats latestChats)
+    {
+        textAreaString = "";
+        foreach (ChatMessageEvent chatMessage in latestChats.messages)
+        {
+            if (chatMessage.messageType == "text")
+            {
+                textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
+            }
+            // TODO: handle images
+        }
+    }
+
     public async Task Main(ICredentialProvider authProvider)
     {
         try
         {
             await MomentoWebApi.SubscribeToTopic(authProvider, "en",
+                () =>
+                {
+                    // successfully subscribed
+                    //textAreaString = "";
+                    messageInputReadOnly = false;
+                },
                 message =>
                 {
                     switch (message)
@@ -176,7 +183,7 @@ public class ModeratedChat : MonoBehaviour
     private IEnumerator GetTokenFromVendingMachine(string name)
     {
         textAreaString = "LOADING...";
-        loading = true;
+        messageInputReadOnly = true;
 
         TokenResponse tokenResponse = null;
         string error = "";
@@ -202,6 +209,19 @@ public class ModeratedChat : MonoBehaviour
             {
                 Debug.LogError("Invalid auth token provided! " + e);
             }
+
+            yield return TranslationApi.GetLatestChats(
+                "en",
+                latestChats =>
+                {
+                    Debug.Log("Got latest chats: " + latestChats);
+                    SetLatestChats(latestChats);
+                },
+                error =>
+                {
+                    Debug.LogError("Error trying to get the latest chats");
+                }
+            );
 
             Task.Run(async () => { await Main(authProvider); });
         } 
@@ -255,9 +275,9 @@ public class ModeratedChat : MonoBehaviour
             textArea.color = Color.red;
         }
 
-        inputTextField.readOnly = loading;
+        inputTextField.readOnly = messageInputReadOnly;
 
-        if (!loading && Input.GetKeyDown(KeyCode.Return))
+        if (!messageInputReadOnly && Input.GetKeyDown(KeyCode.Return))
         {
             // make sure the input field is focused on and it's not empty...
             if ((eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)

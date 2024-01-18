@@ -20,6 +20,7 @@ public static class MomentoWebApi
     public static async Task SubscribeToTopic(
         ICredentialProvider authProvider,
         string languageCode, 
+        Action onSubscribed,
         Action<TopicMessage> onItem,
         Action<TopicSubscribeResponse.Error> onSubscriptionError
     ) {
@@ -31,7 +32,7 @@ public static class MomentoWebApi
         // Set up the client
         using ICacheClient client =
             new CacheClient(Configurations.Laptop.V1(), authProvider, TimeSpan.FromSeconds(24 * 60 * 60));
-        //await EnsureCacheExistsAsync(client, cacheName);
+
         topicClient = new TopicClient(TopicConfigurations.Laptop.latest(), authProvider);
 
         try
@@ -46,8 +47,8 @@ public static class MomentoWebApi
                 {
                     case TopicSubscribeResponse.Subscription subscription:
                         Debug.Log("Successfully subscribed to topic " + topicName);
-                        //textAreaString = "";
-                        //loading = false;
+                        onSubscribed.Invoke();
+
                         try
                         {
                             var cancellableSubscription = subscription.WithCancellation(cts.Token);
@@ -62,8 +63,6 @@ public static class MomentoWebApi
                                     case TopicMessage.Error error:
                                         Debug.LogError(String.Format("Received error message from topic: {0}",
                                             error.Message));
-                                        //textAreaString += "Error receiving message, cancelling...";
-                                        //this.error = true;
                                         cts.Cancel(); // TODO restart subscription?
                                         break;
                                 }

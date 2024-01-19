@@ -53,6 +53,8 @@ public class ModeratedChat : MonoBehaviour
     private ITopicClient topicClient = null;
     private CancellationTokenSource cts = null;
 
+    public Texture2D tex; // debug
+
     // Start is called before the first frame update
     void Start()
     {
@@ -74,7 +76,15 @@ public class ModeratedChat : MonoBehaviour
             {
                 textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
             }
-            // TODO: handle images
+            else
+            {
+                // must be an image
+                byte[] imageData = Convert.FromBase64String(chatMessage.message);
+                tex = new Texture2D(2, 2);
+                ImageConversion.LoadImage(tex, imageData);
+                //string imageId = chatMessage.message;
+                //MomentoWebApi.GetImageMessage(imageId)
+            }
         }
     }
 
@@ -204,6 +214,7 @@ public class ModeratedChat : MonoBehaviour
             try
             {
                 authProvider = new StringMomentoTokenProvider(tokenResponse.token);
+                MomentoWebApi.authProvider = authProvider;
             }
             catch (InvalidArgumentException e)
             {

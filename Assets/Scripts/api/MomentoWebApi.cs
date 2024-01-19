@@ -10,11 +10,30 @@ using UnityEngine;
 public static class MomentoWebApi
 {
     private static CancellationTokenSource cts = null;
+    private static ICacheClient cacheClient = null;
     private static ITopicClient topicClient = null;
+    private const string cacheName = "moderator";
+
+    public static ICredentialProvider authProvider = null;
 
     public static void Dispose()
     {
         if (cts != null) cts.Cancel();
+    }
+
+    private static ICacheClient GetCacheClient()
+    {
+        if (cacheClient != null)
+        {
+            return cacheClient;
+        }
+
+        cacheClient = new CacheClient(
+            Configurations.Laptop.V1(), 
+            authProvider, 
+            TimeSpan.FromSeconds(24 * 60 * 60)
+        );
+        return cacheClient;
     }
 
     public static async Task SubscribeToTopic(
@@ -24,14 +43,12 @@ public static class MomentoWebApi
         Action<TopicMessage> onItem,
         Action<TopicSubscribeResponse.Error> onSubscriptionError
     ) {
-        const string cacheName = "moderator";
         string topicName = "chat-" + languageCode;
 
         // TODO clear current client...
 
         // Set up the client
-        using ICacheClient client =
-            new CacheClient(Configurations.Laptop.V1(), authProvider, TimeSpan.FromSeconds(24 * 60 * 60));
+        ICacheClient client = GetCacheClient();
 
         topicClient = new TopicClient(TopicConfigurations.Laptop.latest(), authProvider);
 
@@ -90,6 +107,24 @@ public static class MomentoWebApi
             Debug.Log("Disposing cache and topic clients...");
             client.Dispose();
             topicClient.Dispose();
+        }
+    }
+
+    public static async Task GetImageMessage(string imageId)
+    {
+        ICacheClient cache = GetCacheClient();
+        CacheGetResponse response = await cache.GetAsync(cacheName, imageId);
+        if (response is CacheGetResponse.Hit)
+        {
+
+        } 
+        else if (response is CacheGetResponse.Miss)
+        {
+
+        }
+        else if (response is CacheGetResponse.Error)
+        {
+
         }
     }
 }

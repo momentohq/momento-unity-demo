@@ -50,7 +50,8 @@ public class ModeratedChat : MonoBehaviour
 
     private bool messageInputReadOnly = false;
 
-    private List<ChatMessageEvent> chats = new List<ChatMessageEvent>();
+    private List<ChatMessageEvent> chatsToConsumeOnMainThread = new List<ChatMessageEvent>();
+    private List<Tuple<UnityEngine.UI.RawImage, string>> imageChatsToUpdateOnMainThread = new List<Tuple<UnityEngine.UI.RawImage, string>>();
 
     private ITopicClient topicClient = null;
     private CancellationTokenSource cts = null;
@@ -93,6 +94,18 @@ public class ModeratedChat : MonoBehaviour
         return chatMessageContainer;
     }
 
+    void UpdateImageChat(UnityEngine.UI.RawImage rawImage, string base64image)
+    {
+        Texture2D tex = new Texture2D(2, 2);
+        byte[] imageData = Convert.FromBase64String(base64image);
+        ImageConversion.LoadImage(tex, imageData);
+
+        rawImage.texture = tex;
+
+        RectTransform rt = rawImage.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(tex.width, tex.height);
+    }
+
     Transform CreateImageChat(ChatMessageEvent chatMessage, bool fetchFromCache = false)
     {
         Transform chatMessageContainer = CreateChatMessageContainer(chatMessage);
@@ -108,25 +121,35 @@ public class ModeratedChat : MonoBehaviour
 
         UnityEngine.UI.RawImage rawImage = message.gameObject.AddComponent<UnityEngine.UI.RawImage>();
 
-        Texture2D tex = new Texture2D(2, 2);
-
         if (fetchFromCache)
         {
-            //string imageId = chatMessage.message;
-            //MomentoWebApi.GetImageMessage(imageId)
+            string imageId = chatMessage.message;
+            Task.Run(async () =>
+            {
+                await MomentoWebApi.GetImageMessage(imageId, base64image =>
+                {
+                    var tuple = new Tuple<UnityEngine.UI.RawImage, string>(rawImage, base64image);
+                    imageChatsToUpdateOnMainThread.Add(tuple);
+                });
+            });
         }
         else
         {
-            byte[] imageData = Convert.FromBase64String(chatMessage.message);
-            ImageConversion.LoadImage(tex, imageData);
+            UpdateImageChat(rawImage, chatMessage.message);
         }
 
-        rawImage.texture = tex;
-
-        RectTransform rt = rawImage.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(tex.width, tex.height);
-
         return chatMessageContainer;
+    }
+
+    void RebuildChatMessageLayout(Transform chatMessageContainer)
+    {
+        UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(chatMessageContainer.GetComponent<RectTransform>());
+
+        RectTransform[] childRectTransforms = chatMessageContainer.GetComponentsInChildren<RectTransform>();
+        foreach (RectTransform rt in childRectTransforms)
+        {
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+        }
     }
 
     void SetLatestChats(LatestChats latestChats)
@@ -146,16 +169,8 @@ public class ModeratedChat : MonoBehaviour
             }
 
             chatMessageContainer.SetParent(ScrollingContentContainer.transform, false);
-            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(chatMessageContainer.GetComponent<RectTransform>());
-
-            RectTransform[] childRectTransforms = chatMessageContainer.GetComponentsInChildren<RectTransform>();
-            foreach (RectTransform rt in childRectTransforms)
-            {
-                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
-            }
+            RebuildChatMessageLayout(chatMessageContainer);
         }
-
-        //UnityEngine.UI.LayoutRebuilder.MarkLayoutForRebuild(ScrollingContentContainer.transform.GetComponent<RectTransform>());
     }
 
     public async Task Main(ICredentialProvider authProvider)
@@ -185,16 +200,8 @@ public class ModeratedChat : MonoBehaviour
                                 // TODO: this is returning a null user
                                 ChatMessageEvent chatMessage = JsonUtility.FromJson<ChatMessageEvent>(text.Value);
 
-                                if (chatMessage.messageType == "image")
-                                {
-                                    // TODO
-                                }
-                                else
-                                {
-                                    textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
-                                }
-
-                                chats.Add(chatMessage); // TODO
+                                // TODO: add thread lock
+                                chatsToConsumeOnMainThread.Add(chatMessage); // TODO
                             }
                             catch (Exception e)
                             {
@@ -355,6 +362,33 @@ public class ModeratedChat : MonoBehaviour
         //{
         //    textArea.color = Color.red;
         //}
+
+        // TODO: thread lock
+        foreach (ChatMessageEvent chatMessage in chatsToConsumeOnMainThread)
+        {
+            Transform chatMessageContainer;
+            if (chatMessage.messageType == "image")
+            {
+                // TODO
+                chatMessageContainer = CreateImageChat(chatMessage, true);
+            }
+            else
+            {
+                // TODO: do this on the main thread...
+                chatMessageContainer = CreateTextChat(chatMessage);
+            }
+            chatMessageContainer.SetParent(ScrollingContentContainer.transform, false);
+            RebuildChatMessageLayout(chatMessageContainer);
+        }
+        chatsToConsumeOnMainThread.Clear();
+
+        // TODO: add thread lock
+        foreach (var tuple in imageChatsToUpdateOnMainThread)
+        {
+            UpdateImageChat(tuple.Item1, tuple.Item2);
+            RebuildChatMessageLayout(tuple.Item1.transform.parent.parent);
+        }
+        imageChatsToUpdateOnMainThread.Clear();
 
         inputTextField.readOnly = messageInputReadOnly;
 

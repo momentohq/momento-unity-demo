@@ -110,21 +110,21 @@ public static class MomentoWebApi
         }
     }
 
-    public static async Task GetImageMessage(string imageId)
+    public static async Task GetImageMessage(string imageId, Action<string> onHit)
     {
         ICacheClient cache = GetCacheClient();
         CacheGetResponse response = await cache.GetAsync(cacheName, imageId);
         if (response is CacheGetResponse.Hit)
         {
-
+            onHit.Invoke((response as CacheGetResponse.Hit).ValueString);
         } 
         else if (response is CacheGetResponse.Miss)
         {
-
+            // TODO
         }
         else if (response is CacheGetResponse.Error)
         {
-
+            // TODO
         }
     }
 }

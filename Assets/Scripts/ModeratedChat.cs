@@ -22,7 +22,7 @@ public class ModeratedChat : MonoBehaviour
     public GameObject nameCanvas;
 
     // this is where we'll show the incoming subscribed Topics messages
-    public TextMeshProUGUI textArea;
+    public GameObject ScrollingContentContainer;
 
     // the main chat input field
     public TMP_InputField inputTextField;
@@ -39,6 +39,8 @@ public class ModeratedChat : MonoBehaviour
     public string tokenVendingMachineURL = "";
 
     public TextMeshProUGUI titleText;
+
+    public GameObject ChatMessagePrefab;
 
     private string clientName = "Client";
 
@@ -74,7 +76,28 @@ public class ModeratedChat : MonoBehaviour
         {
             if (chatMessage.messageType == "text")
             {
-                textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
+                //textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
+                GameObject chatMessageContainer = GameObject.Instantiate(ChatMessagePrefab);
+                Debug.Log("chatMessageContainer.transform " + chatMessageContainer.transform.name);
+                Debug.Log("chatMessageContainer.transform.child0" + chatMessageContainer.transform.GetChild(0).name);
+                
+                Transform userBubble = chatMessageContainer.transform.GetChild(0);
+                userBubble.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username.Substring(0, 1);
+                
+                Transform timestamp = chatMessageContainer.transform.GetChild(1).GetChild(0);
+                timestamp.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username + " - " + chatMessage.timestamp;
+                
+                Transform message = chatMessageContainer.transform.GetChild(1).GetChild(1);
+                message.GetComponent<TextMeshProUGUI>().text = chatMessage.message;
+
+                chatMessageContainer.transform.SetParent(ScrollingContentContainer.transform, false);
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(chatMessageContainer.transform.GetComponent<RectTransform>());
+
+                RectTransform[] childRectTransforms = chatMessageContainer.transform.GetComponentsInChildren<RectTransform>();
+                foreach (RectTransform rt in childRectTransforms)
+                {
+                    UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+                }
             }
             else
             {
@@ -86,6 +109,8 @@ public class ModeratedChat : MonoBehaviour
                 //MomentoWebApi.GetImageMessage(imageId)
             }
         }
+
+        UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(ScrollingContentContainer.transform.GetComponent<RectTransform>());
     }
 
     public async Task Main(ICredentialProvider authProvider)
@@ -280,11 +305,11 @@ public class ModeratedChat : MonoBehaviour
     void Update()
     {
         // Update UI text on the main thread
-        textArea.text = textAreaString;
-        if (this.error)
-        {
-            textArea.color = Color.red;
-        }
+        //textArea.text = textAreaString;
+        //if (this.error)
+        //{
+        //    textArea.color = Color.red;
+        //}
 
         inputTextField.readOnly = messageInputReadOnly;
 

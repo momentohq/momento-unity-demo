@@ -69,48 +69,93 @@ public class ModeratedChat : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
+    Transform CreateChatMessageContainer(ChatMessageEvent chatMessage)
+    {
+        Transform chatMessageContainer = GameObject.Instantiate(ChatMessagePrefab).transform;
+
+        Transform userBubble = chatMessageContainer.GetChild(0);
+        userBubble.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username.Substring(0, 1);
+
+        Transform timestamp = chatMessageContainer.GetChild(1).GetChild(0);
+        DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(chatMessage.timestamp);
+        timestamp.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username + " - " + dateTimeOffset.ToLocalTime();
+
+        return chatMessageContainer;
+    }
+
+    Transform CreateTextChat(ChatMessageEvent chatMessage)
+    {
+        Transform chatMessageContainer = CreateChatMessageContainer(chatMessage);
+
+        Transform message = chatMessageContainer.GetChild(1).GetChild(1);
+        message.GetComponent<TextMeshProUGUI>().text = chatMessage.message;
+
+        return chatMessageContainer;
+    }
+
+    Transform CreateImageChat(ChatMessageEvent chatMessage, bool fetchFromCache = false)
+    {
+        Transform chatMessageContainer = CreateChatMessageContainer(chatMessage);
+
+        UnityEngine.UI.VerticalLayoutGroup vlg = chatMessageContainer.GetChild(1).GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+        vlg.childControlWidth = false;
+
+        Transform message = chatMessageContainer.GetChild(1).GetChild(1);
+        Destroy(message.gameObject);
+
+        message = new GameObject("ImageMessage").transform;
+        message.SetParent(chatMessageContainer.GetChild(1));
+
+        UnityEngine.UI.RawImage rawImage = message.gameObject.AddComponent<UnityEngine.UI.RawImage>();
+
+        Texture2D tex = new Texture2D(2, 2);
+
+        if (fetchFromCache)
+        {
+            //string imageId = chatMessage.message;
+            //MomentoWebApi.GetImageMessage(imageId)
+        }
+        else
+        {
+            byte[] imageData = Convert.FromBase64String(chatMessage.message);
+            ImageConversion.LoadImage(tex, imageData);
+        }
+
+        rawImage.texture = tex;
+
+        RectTransform rt = rawImage.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(tex.width, tex.height);
+
+        return chatMessageContainer;
+    }
+
     void SetLatestChats(LatestChats latestChats)
     {
         textAreaString = "";
         foreach (ChatMessageEvent chatMessage in latestChats.messages)
         {
+            Transform chatMessageContainer;
             if (chatMessage.messageType == "text")
             {
-                //textAreaString += "<b>" + chatMessage.user.username + "</b>: " + chatMessage.message + "\n";
-                GameObject chatMessageContainer = GameObject.Instantiate(ChatMessagePrefab);
-                Debug.Log("chatMessageContainer.transform " + chatMessageContainer.transform.name);
-                Debug.Log("chatMessageContainer.transform.child0" + chatMessageContainer.transform.GetChild(0).name);
-                
-                Transform userBubble = chatMessageContainer.transform.GetChild(0);
-                userBubble.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username.Substring(0, 1);
-                
-                Transform timestamp = chatMessageContainer.transform.GetChild(1).GetChild(0);
-                timestamp.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username + " - " + chatMessage.timestamp;
-                
-                Transform message = chatMessageContainer.transform.GetChild(1).GetChild(1);
-                message.GetComponent<TextMeshProUGUI>().text = chatMessage.message;
-
-                chatMessageContainer.transform.SetParent(ScrollingContentContainer.transform, false);
-                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(chatMessageContainer.transform.GetComponent<RectTransform>());
-
-                RectTransform[] childRectTransforms = chatMessageContainer.transform.GetComponentsInChildren<RectTransform>();
-                foreach (RectTransform rt in childRectTransforms)
-                {
-                    UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
-                }
+                chatMessageContainer = CreateTextChat(chatMessage);
             }
             else
             {
                 // must be an image
-                byte[] imageData = Convert.FromBase64String(chatMessage.message);
-                tex = new Texture2D(2, 2);
-                ImageConversion.LoadImage(tex, imageData);
-                //string imageId = chatMessage.message;
-                //MomentoWebApi.GetImageMessage(imageId)
+                chatMessageContainer = CreateImageChat(chatMessage);
+            }
+
+            chatMessageContainer.SetParent(ScrollingContentContainer.transform, false);
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(chatMessageContainer.GetComponent<RectTransform>());
+
+            RectTransform[] childRectTransforms = chatMessageContainer.GetComponentsInChildren<RectTransform>();
+            foreach (RectTransform rt in childRectTransforms)
+            {
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
             }
         }
 
-        UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(ScrollingContentContainer.transform.GetComponent<RectTransform>());
+        //UnityEngine.UI.LayoutRebuilder.MarkLayoutForRebuild(ScrollingContentContainer.transform.GetComponent<RectTransform>());
     }
 
     public async Task Main(ICredentialProvider authProvider)

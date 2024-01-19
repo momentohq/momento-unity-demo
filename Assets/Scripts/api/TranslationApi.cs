@@ -26,7 +26,7 @@ public class ChatMessageEvent
     public string messageType;
     public string message;
     public string sourceLanguage;
-    public double timestamp;
+    public long timestamp;
 }
 
 [Serializable]

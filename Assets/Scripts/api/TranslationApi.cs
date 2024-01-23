@@ -35,11 +35,20 @@ public class LatestChats
     public ChatMessageEvent[] messages;
 }
 
+[Serializable]
+public class PostMessageEvent
+{
+    public string messageType;
+    public string message;
+    public string sourceLanguage;
+    public long timestamp;
+}
+
 // compare to
 // https://github.com/momentohq/moderated-chat/blob/main/frontend/src/api/translation.ts
 public static class TranslationApi
 {
-    private const string baseUrl = "https://57zovcekn0.execute-api.us-west-2.amazonaws.com/prod";
+    private const string baseUrl = "https://chat-api.developer-mst-dev.preprod.a.momentohq.com";
 
     public static IEnumerator CreateToken(
         User user, 

@@ -10,47 +10,77 @@ using UnityEngine;
 public static class MomentoWebApi
 {
     private static CancellationTokenSource cts = null;
-    private static ICacheClient cacheClient = null;
-    private static ITopicClient topicClient = null;
+    private static ICacheClient _cacheClient = null;
+    private static ITopicClient _topicClient = null;
     private const string cacheName = "moderator";
+    private const string publishTopicName = "chat-publish";
+
+    private static Action _onSubscribed = null;
+    private static Action<TopicMessage> _onItem = null;
+    private static Action<TopicSubscribeResponse.Error> _onSubscriptionError = null;
 
     public static ICredentialProvider authProvider = null;
 
     public static void Dispose()
     {
-        if (cts != null) cts.Cancel();
+        cts?.Cancel();
+        _cacheClient?.Dispose();
+        _topicClient?.Dispose();
+
+        _cacheClient = null;
+        _topicClient = null;
     }
 
     private static ICacheClient GetCacheClient()
     {
-        if (cacheClient != null)
+        if (_cacheClient == null)
         {
-            return cacheClient;
+            _cacheClient = new CacheClient(
+                Configurations.Laptop.V1(),
+                authProvider,
+                TimeSpan.FromSeconds(24 * 60 * 60)
+            );
         }
 
-        cacheClient = new CacheClient(
-            Configurations.Laptop.V1(), 
-            authProvider, 
-            TimeSpan.FromSeconds(24 * 60 * 60)
-        );
-        return cacheClient;
+        return _cacheClient;
+    }
+
+    private static ITopicClient GetTopicClient()
+    {
+        if (_topicClient == null)
+        {
+            _topicClient = new TopicClient(
+                TopicConfigurations.Laptop.latest(), 
+                authProvider
+            );
+        }
+
+        return _topicClient;
     }
 
     public static async Task SubscribeToTopic(
-        ICredentialProvider authProvider,
+        ICredentialProvider authProvider, // TODO
         string languageCode, 
         Action onSubscribed,
         Action<TopicMessage> onItem,
-        Action<TopicSubscribeResponse.Error> onSubscriptionError
+        Action<TopicSubscribeResponse.Error> onSubscriptionError,
+        bool cacheActions = true
     ) {
         string topicName = "chat-" + languageCode;
+
+        // cache actions for reconnects
+        if (cacheActions)
+        {
+            _onSubscribed = onSubscribed;
+            _onItem = onItem;
+            _onSubscriptionError = onSubscriptionError;
+        }
 
         // TODO clear current client...
 
         // Set up the client
         ICacheClient client = GetCacheClient();
-
-        topicClient = new TopicClient(TopicConfigurations.Laptop.latest(), authProvider);
+        ITopicClient topicClient = GetTopicClient();
 
         try
         {
@@ -105,8 +135,8 @@ public static class MomentoWebApi
         finally
         {
             Debug.Log("Disposing cache and topic clients...");
-            client.Dispose();
-            topicClient.Dispose();
+            client?.Dispose();
+            topicClient?.Dispose();
         }
     }
 
@@ -126,5 +156,45 @@ public static class MomentoWebApi
         {
             // TODO
         }
+    }
+
+    public static async Task Publish(string targetLanguage, string message)
+    {
+        ITopicClient topicClient = GetTopicClient();
+        var publishResponse = await topicClient.PublishAsync(cacheName, publishTopicName, message);
+        switch (publishResponse)
+        {
+            case TopicPublishResponse.Success:
+                Debug.Log("Successfully published message " + message);
+                break;
+            case TopicPublishResponse.Error error:
+                Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
+                if (error.ErrorCode == Momento.Sdk.Exceptions.MomentoErrorCode.AUTHENTICATION_ERROR)
+                {
+                    Debug.LogError("token has expired, going to refresh subscription and retry publish");
+                    Dispose();
+                    await SubscribeToTopic(authProvider, targetLanguage, async () =>
+                    {
+                        Debug.Log("refresh of subscription worked, retrying publish now...");
+                        _onSubscribed.Invoke();
+                        await Publish(targetLanguage, message);
+                    }, _onItem, _onSubscriptionError, false);
+                }
+                break;
+        }
+    }
+
+    public static async Task SendTextMessage(string messageType, string message, string sourceLanguage)
+    {
+        PostMessageEvent pme = new PostMessageEvent
+        {
+            messageType = messageType,
+            message = message,
+            sourceLanguage = sourceLanguage,
+            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        Debug.Log("About to publish this json: " + JsonUtility.ToJson(pme));
+        await Publish(sourceLanguage, JsonUtility.ToJson(pme));
     }
 }

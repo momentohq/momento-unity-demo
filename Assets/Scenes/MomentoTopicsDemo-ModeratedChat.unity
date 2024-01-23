@@ -2455,8 +2455,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: TopicsTestTokenVendingMachine, Assembly-CSharp
+      - m_Target: {fileID: 963194232}
+        m_TargetAssemblyTypeName: ModeratedChat, Assembly-CSharp
         m_MethodName: PublishMessage
         m_Mode: 1
         m_Arguments:
@@ -3391,8 +3391,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: TopicsTestTokenVendingMachine, Assembly-CSharp
+      - m_Target: {fileID: 963194232}
+        m_TargetAssemblyTypeName: ModeratedChat, Assembly-CSharp
         m_MethodName: SetName
         m_Mode: 1
         m_Arguments:
@@ -3883,7 +3883,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6964913547535871011, guid: d5cc041f1f967ac469c258d05b7c566f, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 500
+      value: 588.75
       objectReference: {fileID: 0}
     - target: {fileID: 6964913547535871011, guid: d5cc041f1f967ac469c258d05b7c566f, type: 3}
       propertyPath: m_AnchoredPosition.y

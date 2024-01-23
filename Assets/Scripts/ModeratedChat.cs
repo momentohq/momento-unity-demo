@@ -50,6 +50,7 @@ public class ModeratedChat : MonoBehaviour
 
     private bool messageInputReadOnly = false;
 
+    private readonly object chatLock = new object();
     private List<ChatMessageEvent> chatsToConsumeOnMainThread = new List<ChatMessageEvent>();
     private List<Tuple<UnityEngine.UI.RawImage, string>> imageChatsToUpdateOnMainThread = new List<Tuple<UnityEngine.UI.RawImage, string>>();
 
@@ -79,7 +80,7 @@ public class ModeratedChat : MonoBehaviour
 
         Transform timestamp = chatMessageContainer.GetChild(1).GetChild(0);
         DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(chatMessage.timestamp);
-        timestamp.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username + " - " + dateTimeOffset.ToLocalTime();
+        timestamp.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username + " - " + dateTimeOffset.ToLocalTime().ToString("t");
 
         return chatMessageContainer;
     }
@@ -129,7 +130,10 @@ public class ModeratedChat : MonoBehaviour
                 await MomentoWebApi.GetImageMessage(imageId, base64image =>
                 {
                     var tuple = new Tuple<UnityEngine.UI.RawImage, string>(rawImage, base64image);
-                    imageChatsToUpdateOnMainThread.Add(tuple);
+                    lock (chatLock)
+                    {
+                        imageChatsToUpdateOnMainThread.Add(tuple);
+                    }
                 });
             });
         }
@@ -197,11 +201,12 @@ public class ModeratedChat : MonoBehaviour
                                 Debug.Log(String.Format("Received string message from topic: {0} (with tokenId {1})",
                                 text.Value, text.TokenId));
 
-                                // TODO: this is returning a null user
                                 ChatMessageEvent chatMessage = JsonUtility.FromJson<ChatMessageEvent>(text.Value);
 
-                                // TODO: add thread lock
-                                chatsToConsumeOnMainThread.Add(chatMessage); // TODO
+                                lock (chatLock)
+                                {
+                                    chatsToConsumeOnMainThread.Add(chatMessage);
+                                }
                             }
                             catch (Exception e)
                             {
@@ -240,29 +245,10 @@ public class ModeratedChat : MonoBehaviour
         // we now no longer need to send the user's name in the message since all
         // subscribers will receive the publishers' names via the message's TokenId.
         string message = inputTextField.text;
-        //Task.Run(async () =>
-        //{
-        //    Debug.Log("About to publish message: " + message);
-        //    if (cts != null && !cts.IsCancellationRequested)
-        //    {
-        //        var publishResponse =
-        //            await topicClient.PublishAsync(cacheName, TopicName, message);
-        //        switch (publishResponse)
-        //        {
-        //            case TopicPublishResponse.Success:
-        //                Debug.Log("Successfully published message " + message);
-        //                break;
-        //            case TopicPublishResponse.Error error:
-        //                Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
-        //                cts.Cancel();
-        //                break;
-        //        }
-        //    }
-        //    else
-        //    {
-        //        Debug.LogError("Could not publish message since cancellation already occurred");
-        //    }
-        //});
+        Task.Run(async () =>
+        {
+            await MomentoWebApi.SendTextMessage("text", message, "en"); // TODO
+        });
         inputTextField.text = "";
         inputTextField.ActivateInputField();
     }
@@ -320,29 +306,9 @@ public class ModeratedChat : MonoBehaviour
         }
     }
 
-    private async Task EnsureCacheExistsAsync(ICacheClient client, string cacheName)
-    {
-        Debug.Log(String.Format("Creating cache {0} if it doesn't already exist.", cacheName));
-        var createCacheResponse = await client.CreateCacheAsync(cacheName);
-        switch (createCacheResponse)
-        {
-            case CreateCacheResponse.Success:
-                Debug.Log(String.Format("Created cache {0}.", cacheName));
-                break;
-            case CreateCacheResponse.CacheAlreadyExists:
-                Debug.Log(String.Format("Cache {0} already exists.", cacheName));
-                break;
-            case CreateCacheResponse.Error:
-                Debug.LogError(String.Format("Error creating cache: {0}", cacheName));
-                break;
-        }
-    }
-
     public void SetName()
     {
         Debug.Log("User entered name " + nameInputTextField.text);
-
-        // TODO add profanity filter
 
         clientName = nameInputTextField.text;
 
@@ -363,32 +329,34 @@ public class ModeratedChat : MonoBehaviour
         //    textArea.color = Color.red;
         //}
 
-        // TODO: thread lock
-        foreach (ChatMessageEvent chatMessage in chatsToConsumeOnMainThread)
+        lock (chatLock)
         {
-            Transform chatMessageContainer;
-            if (chatMessage.messageType == "image")
+            foreach (ChatMessageEvent chatMessage in chatsToConsumeOnMainThread)
             {
-                // TODO
-                chatMessageContainer = CreateImageChat(chatMessage, true);
+                Transform chatMessageContainer;
+                if (chatMessage.messageType == "image")
+                {
+                    // TODO
+                    chatMessageContainer = CreateImageChat(chatMessage, true);
+                }
+                else
+                {
+                    // TODO: do this on the main thread...
+                    chatMessageContainer = CreateTextChat(chatMessage);
+                }
+                chatMessageContainer.SetParent(ScrollingContentContainer.transform, false);
+                RebuildChatMessageLayout(chatMessageContainer);
             }
-            else
-            {
-                // TODO: do this on the main thread...
-                chatMessageContainer = CreateTextChat(chatMessage);
-            }
-            chatMessageContainer.SetParent(ScrollingContentContainer.transform, false);
-            RebuildChatMessageLayout(chatMessageContainer);
-        }
-        chatsToConsumeOnMainThread.Clear();
+            chatsToConsumeOnMainThread.Clear();
 
-        // TODO: add thread lock
-        foreach (var tuple in imageChatsToUpdateOnMainThread)
-        {
-            UpdateImageChat(tuple.Item1, tuple.Item2);
-            RebuildChatMessageLayout(tuple.Item1.transform.parent.parent);
+            // TODO: add thread lock
+            foreach (var tuple in imageChatsToUpdateOnMainThread)
+            {
+                UpdateImageChat(tuple.Item1, tuple.Item2);
+                RebuildChatMessageLayout(tuple.Item1.transform.parent.parent);
+            }
+            imageChatsToUpdateOnMainThread.Clear();
         }
-        imageChatsToUpdateOnMainThread.Clear();
 
         inputTextField.readOnly = messageInputReadOnly;
 

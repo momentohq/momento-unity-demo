@@ -44,6 +44,19 @@ public class PostMessageEvent
     public long timestamp;
 }
 
+[Serializable]
+public class LanguageOption
+{
+    public string value;
+    public string label;
+}
+
+[Serializable]
+public class LanguageOptionResponse
+{
+    public LanguageOption[] supportedLanguages;
+}
+
 // compare to
 // https://github.com/momentohq/moderated-chat/blob/main/frontend/src/api/translation.ts
 public static class TranslationApi
@@ -97,11 +110,6 @@ public static class TranslationApi
             Debug.Log("Sending request to translation api for latest chats...");
             yield return webRequest.SendWebRequest();
 
-            //while (!webRequest.isDone)
-            //{
-            //    Thread.Sleep(33);
-            //}
-
             if (webRequest.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log("Got result:" + webRequest.downloadHandler.text);
@@ -111,6 +119,33 @@ public static class TranslationApi
             else
             {
                 string error = "Error trying to get latest chats: " + webRequest.error;
+                Debug.LogError(error);
+                onError.Invoke(error);
+            }
+        }
+    }
+
+    public static IEnumerator GetSupportedLanguages(
+        Action<LanguageOptionResponse> onResponse,
+        Action<string> onError)
+    {
+        string url = baseUrl + "/v1/translate/languages";
+
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(url))
+        {
+            webRequest.SetRequestHeader("Cache-Control", "no-cache");
+            Debug.Log("Sending request to translation api for supported languages...");
+            yield return webRequest.SendWebRequest();
+
+            if (webRequest.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log("Got result:" + webRequest.downloadHandler.text);
+
+                onResponse.Invoke(JsonUtility.FromJson<LanguageOptionResponse>(webRequest.downloadHandler.text));
+            }
+            else
+            {
+                string error = "Error trying to get supported langauges: " + webRequest.error;
                 Debug.LogError(error);
                 onError.Invoke(error);
             }

@@ -59,13 +59,18 @@ public static class MomentoWebApi
     }
 
     public static async Task SubscribeToTopic(
-        ICredentialProvider authProvider, // TODO
         string languageCode, 
         Action onSubscribed,
         Action<TopicMessage> onItem,
         Action<TopicSubscribeResponse.Error> onSubscriptionError,
         bool cacheActions = true
     ) {
+        if (authProvider == null)
+        {
+            Debug.LogError("Authentication not set up yet, cannot subscribe to topic");
+            return;
+        }
+
         string topicName = "chat-" + languageCode;
 
         // cache actions for reconnects
@@ -76,7 +81,8 @@ public static class MomentoWebApi
             _onSubscriptionError = onSubscriptionError;
         }
 
-        // TODO clear current client...
+        // clear current client...
+        Dispose();
 
         // Set up the client
         ICacheClient client = GetCacheClient();
@@ -172,8 +178,7 @@ public static class MomentoWebApi
                 if (error.ErrorCode == Momento.Sdk.Exceptions.MomentoErrorCode.AUTHENTICATION_ERROR)
                 {
                     Debug.LogError("token has expired, going to refresh subscription and retry publish");
-                    Dispose();
-                    await SubscribeToTopic(authProvider, targetLanguage, async () =>
+                    await SubscribeToTopic(targetLanguage, async () =>
                     {
                         Debug.Log("refresh of subscription worked, retrying publish now...");
                         _onSubscribed.Invoke();

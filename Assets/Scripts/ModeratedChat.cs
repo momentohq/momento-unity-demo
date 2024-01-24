@@ -10,6 +10,7 @@ using System.Threading;
 using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class ModeratedChat : MonoBehaviour
 {
@@ -40,12 +41,17 @@ public class ModeratedChat : MonoBehaviour
 
     public TextMeshProUGUI titleText;
 
+    public TMP_Dropdown tmpLanguageDropdown;
+
+    private Dictionary<int, string> dropdownValueToLanguage = new Dictionary<int, string>();
+    private string currentLanguage = "en";
+
     public GameObject ChatMessagePrefab;
 
     private string clientName = "Client";
 
     // helper variable to update the main text area from the background thread
-    private string textAreaString = "";
+    //private string textAreaString = "";
     private bool error = false;
 
     private bool messageInputReadOnly = false;
@@ -158,7 +164,13 @@ public class ModeratedChat : MonoBehaviour
 
     void SetLatestChats(LatestChats latestChats)
     {
-        textAreaString = "";
+        // first remove any old chat GameObjects
+        foreach (Transform child in ScrollingContentContainer.transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // now create GameObjects for each chat message
         foreach (ChatMessageEvent chatMessage in latestChats.messages)
         {
             Transform chatMessageContainer;
@@ -177,15 +189,14 @@ public class ModeratedChat : MonoBehaviour
         }
     }
 
-    public async Task Main(ICredentialProvider authProvider)
+    public async Task Main()
     {
         try
         {
-            await MomentoWebApi.SubscribeToTopic(authProvider, "en",
+            await MomentoWebApi.SubscribeToTopic(currentLanguage,
                 () =>
                 {
                     // successfully subscribed
-                    //textAreaString = "";
                     messageInputReadOnly = false;
                 },
                 message =>
@@ -217,7 +228,7 @@ public class ModeratedChat : MonoBehaviour
                         case TopicMessage.Error error:
                             Debug.LogError(String.Format("Received error message from topic: {0}",
                             error.Message));
-                            textAreaString += "Error receiving message, cancelling...";
+                            //textAreaString += "Error receiving message, cancelling...";
                             this.error = true;
                             break;
                     }
@@ -225,7 +236,7 @@ public class ModeratedChat : MonoBehaviour
                 error =>
                 {
                     Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
-                    textAreaString += "Error trying to connect to chat, cancelling...";
+                    //textAreaString += "Error trying to connect to chat, cancelling...";
                     this.error = true;
                 }
             );
@@ -233,7 +244,7 @@ public class ModeratedChat : MonoBehaviour
         finally
         {
             // TODO
-            //Debug.Log("Disposing cache and topic clients...");
+            Debug.Log("Finished Momento Toipc subscription in main app");
             //client.Dispose();
             //topicClient.Dispose();
         }
@@ -247,7 +258,7 @@ public class ModeratedChat : MonoBehaviour
         string message = inputTextField.text;
         Task.Run(async () =>
         {
-            await MomentoWebApi.SendTextMessage("text", message, "en"); // TODO
+            await MomentoWebApi.SendTextMessage("text", message, currentLanguage); // TODO
         });
         inputTextField.text = "";
         inputTextField.ActivateInputField();
@@ -255,7 +266,8 @@ public class ModeratedChat : MonoBehaviour
 
     private IEnumerator GetTokenFromVendingMachine(string name)
     {
-        textAreaString = "LOADING...";
+        //textAreaString = "LOADING...";
+        // TODO: make lang dropdown disabled...
         messageInputReadOnly = true;
 
         TokenResponse tokenResponse = null;
@@ -282,28 +294,34 @@ public class ModeratedChat : MonoBehaviour
             catch (InvalidArgumentException e)
             {
                 Debug.LogError("Invalid auth token provided! " + e);
+                yield break; // TODO
             }
 
-            yield return TranslationApi.GetLatestChats(
-                "en",
-                latestChats =>
-                {
-                    Debug.Log("Got latest chats: " + latestChats);
-                    SetLatestChats(latestChats);
-                },
-                error =>
-                {
-                    Debug.LogError("Error trying to get the latest chats");
-                }
-            );
+            yield return GetLatestChats();
 
-            Task.Run(async () => { await Main(authProvider); });
+            Task.Run(async () => { await Main(); });
         } 
         else
         {
-            textAreaString = error;
+            //textAreaString = error;
             this.error = true;
         }
+    }
+
+    IEnumerator GetLatestChats()
+    {
+        yield return TranslationApi.GetLatestChats(
+            currentLanguage,
+            latestChats =>
+            {
+                Debug.Log("Got latest chats: " + latestChats);
+                SetLatestChats(latestChats);
+            },
+            error =>
+            {
+                Debug.LogError("Error trying to get the latest chats");
+            }
+        );
     }
 
     public void SetName()
@@ -317,6 +335,33 @@ public class ModeratedChat : MonoBehaviour
         inputTextField.ActivateInputField();
 
         StartCoroutine(GetTokenFromVendingMachine(clientName));
+
+        StartCoroutine(TranslationApi.GetSupportedLanguages(languageOptions =>
+        {
+            Debug.Log("Got language options: " + languageOptions);
+            List<string> dropdownOptions = new List<string>();
+            foreach (LanguageOption languageOption in languageOptions.supportedLanguages)
+            {
+                Debug.Log("Got option: " + languageOption.value + ", " + languageOption.label);
+                dropdownValueToLanguage.Add(dropdownOptions.Count, languageOption.value);
+
+                dropdownOptions.Add(languageOption.label);
+            }
+            tmpLanguageDropdown.AddOptions(dropdownOptions);
+        }, error =>
+        {
+            Debug.Log("Error trying to get languages..." + error);
+        }));
+    }
+
+    public void LanguageChanged()
+    {
+        Debug.Log("new lang " + tmpLanguageDropdown.value + ", which is " + dropdownValueToLanguage[tmpLanguageDropdown.value]);
+        currentLanguage = dropdownValueToLanguage[tmpLanguageDropdown.value];
+        // restart topic language subscription...
+        MomentoWebApi.Dispose();
+        StartCoroutine(GetLatestChats());
+        Task.Run(async () => { await Main(); });
     }
 
     // Update is called once per frame

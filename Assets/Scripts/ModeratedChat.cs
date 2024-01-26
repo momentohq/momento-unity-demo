@@ -11,6 +11,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using SFB;
 
 public class ModeratedChat : MonoBehaviour
 {
@@ -362,6 +363,38 @@ public class ModeratedChat : MonoBehaviour
         MomentoWebApi.Dispose();
         StartCoroutine(GetLatestChats());
         Task.Run(async () => { await Main(); });
+    }
+
+    public void ImageButtonClicked()
+    {
+        try
+        {
+            var extensions = new[] {
+                new ExtensionFilter("Image Files", "png", "jpg", "jpeg" )
+            };
+            string[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", extensions, false);
+
+            if (paths.Length == 0)
+            {
+                Debug.Log("No image selected");
+                return;
+            }
+            Debug.Log("Loading in image at path " + paths[0]);
+
+            byte[] imageBytes = System.IO.File.ReadAllBytes(paths[0]);
+            string base64Image = Convert.ToBase64String(imageBytes);
+
+            // TODO preview image
+
+            Task.Run(async () =>
+            {
+                await MomentoWebApi.SendImageMessage(base64Image, currentLanguage);
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error while trying to load file " + e);
+        }
     }
 
     // Update is called once per frame

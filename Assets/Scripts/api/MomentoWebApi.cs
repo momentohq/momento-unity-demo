@@ -189,6 +189,8 @@ public static class MomentoWebApi
         }
     }
 
+    // messageType should be either "text" or "image"
+    // TODO is there a way to enforce this in C#?
     public static async Task SendTextMessage(string messageType, string message, string sourceLanguage)
     {
         PostMessageEvent pme = new PostMessageEvent
@@ -201,5 +203,21 @@ public static class MomentoWebApi
 
         Debug.Log("About to publish this json: " + JsonUtility.ToJson(pme));
         await Publish(sourceLanguage, JsonUtility.ToJson(pme));
+    }
+
+    public static async Task SendImageMessage(string base64Image, string sourceLanguage)
+    {
+        string imageId = "image-" + Guid.NewGuid().ToString();
+        ICacheClient cacheClient = GetCacheClient();
+        Debug.Log("Setting image in cache...");
+        CacheSetResponse response = await cacheClient.SetAsync(cacheName, imageId, base64Image);
+        if (response is CacheSetResponse.Success)
+        {
+            await SendTextMessage("image", imageId, sourceLanguage);
+        }
+        else if (response is CacheSetResponse.Error)
+        {
+            // TODO
+        }
     }
 }

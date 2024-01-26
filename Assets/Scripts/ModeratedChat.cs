@@ -1,16 +1,13 @@
 using UnityEngine;
 using TMPro;
-using Momento.Sdk;
 using Momento.Sdk.Auth;
 using Momento.Sdk.Exceptions;
 using Momento.Sdk.Responses;
 using System.Threading.Tasks;
 using System;
-using System.Threading;
 using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using SFB;
 
 public class ModeratedChat : MonoBehaviour
@@ -31,6 +28,8 @@ public class ModeratedChat : MonoBehaviour
 
     // the name input field
     public TMP_InputField nameInputTextField;
+
+    public GameObject imagePreview;
 
     public EventSystem eventSystem;
     
@@ -61,10 +60,7 @@ public class ModeratedChat : MonoBehaviour
     private List<ChatMessageEvent> chatsToConsumeOnMainThread = new List<ChatMessageEvent>();
     private List<Tuple<UnityEngine.UI.RawImage, string>> imageChatsToUpdateOnMainThread = new List<Tuple<UnityEngine.UI.RawImage, string>>();
 
-    private ITopicClient topicClient = null;
-    private CancellationTokenSource cts = null;
-
-    public Texture2D tex; // debug
+    private byte[] imageBytes;
 
     // Start is called before the first frame update
     void Start()
@@ -104,7 +100,7 @@ public class ModeratedChat : MonoBehaviour
 
     void UpdateImageChat(UnityEngine.UI.RawImage rawImage, string base64image)
     {
-        Texture2D tex = new Texture2D(2, 2);
+        Texture2D tex = new Texture2D(2, 2); // size doesn't matter
         byte[] imageData = Convert.FromBase64String(base64image);
         ImageConversion.LoadImage(tex, imageData);
 
@@ -119,7 +115,13 @@ public class ModeratedChat : MonoBehaviour
         Transform chatMessageContainer = CreateChatMessageContainer(chatMessage);
 
         UnityEngine.UI.VerticalLayoutGroup vlg = chatMessageContainer.GetChild(1).GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
-        vlg.childControlWidth = false;
+        vlg.childControlWidth = false; // helps keep image aspect correct
+
+        Transform timestamp = chatMessageContainer.GetChild(1).GetChild(0);
+        timestamp.GetComponent<RectTransform>().sizeDelta = new Vector2(
+            vlg.transform.GetComponent<RectTransform>().sizeDelta.x,
+            timestamp.GetComponent<RectTransform>().sizeDelta.y
+        );
 
         Transform message = chatMessageContainer.GetChild(1).GetChild(1);
         Destroy(message.gameObject);
@@ -381,20 +383,39 @@ public class ModeratedChat : MonoBehaviour
             }
             Debug.Log("Loading in image at path " + paths[0]);
 
-            byte[] imageBytes = System.IO.File.ReadAllBytes(paths[0]);
-            string base64Image = Convert.ToBase64String(imageBytes);
+            imageBytes = System.IO.File.ReadAllBytes(paths[0]);
 
-            // TODO preview image
-
-            Task.Run(async () =>
-            {
-                await MomentoWebApi.SendImageMessage(base64Image, currentLanguage);
-            });
+            // preview image
+            Texture2D tex = new Texture2D(2, 2); // size doesn't matter
+            ImageConversion.LoadImage(tex, imageBytes);
+            UnityEngine.UI.RawImage rawImage = imagePreview.transform.GetComponentInChildren<UnityEngine.UI.RawImage>();
+            rawImage.texture = tex;
+            imagePreview.SetActive(true);
         }
         catch (Exception e)
         {
             Debug.LogError("Error while trying to load file " + e);
         }
+    }
+
+    public void SendImageButtonClicked()
+    {
+        Debug.Log("User clicked send image button");
+
+        imagePreview.SetActive(false);
+
+        string base64Image = Convert.ToBase64String(imageBytes);
+
+        Task.Run(async () =>
+        {
+            await MomentoWebApi.SendImageMessage(base64Image, currentLanguage);
+        });
+    }
+
+    public void CancelImageButtonClicked()
+    {
+        Debug.Log("User canceled sending image");
+        imagePreview.SetActive(false);
     }
 
     // Update is called once per frame

@@ -47,6 +47,7 @@ public class ModeratedChat : MonoBehaviour
     private string currentLanguage = "en";
 
     public GameObject ChatMessagePrefab;
+    public GameObject ImageMessagePrefab;
 
     private string clientName = "Client";
 
@@ -74,16 +75,17 @@ public class ModeratedChat : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
-    Transform CreateChatMessageContainer(ChatMessageEvent chatMessage)
+    Transform CreateChatMessageContainer(ChatMessageEvent chatMessage, bool imagePrefab = false)
     {
-        Transform chatMessageContainer = GameObject.Instantiate(ChatMessagePrefab).transform;
+        Transform chatMessageContainer = GameObject.Instantiate(
+            imagePrefab ? ImageMessagePrefab : ChatMessagePrefab).transform;
 
-        Transform userBubble = chatMessageContainer.GetChild(0);
-        userBubble.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username.Substring(0, 1);
+        TextMeshProUGUI userBubbleTMP = chatMessageContainer.GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>();
+        userBubbleTMP.text = chatMessage.user.username.Substring(0, 1);
 
-        Transform timestamp = chatMessageContainer.GetChild(1).GetChild(0);
+        TextMeshProUGUI timestampTMP = chatMessageContainer.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>();
         DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(chatMessage.timestamp);
-        timestamp.GetComponent<TextMeshProUGUI>().text = chatMessage.user.username + " - " + dateTimeOffset.ToLocalTime().ToString("t");
+        timestampTMP.text = chatMessage.user.username + " - " + dateTimeOffset.ToLocalTime().ToString("t");
 
         return chatMessageContainer;
     }
@@ -92,8 +94,9 @@ public class ModeratedChat : MonoBehaviour
     {
         Transform chatMessageContainer = CreateChatMessageContainer(chatMessage);
 
-        Transform message = chatMessageContainer.GetChild(1).GetChild(1);
-        message.GetComponent<TextMeshProUGUI>().text = chatMessage.message;
+        TextMeshProUGUI messageTMP = 
+            chatMessageContainer.GetChild(1).GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>();
+        messageTMP.text = chatMessage.message;
 
         return chatMessageContainer;
     }
@@ -112,24 +115,16 @@ public class ModeratedChat : MonoBehaviour
 
     Transform CreateImageChat(ChatMessageEvent chatMessage, bool fetchFromCache = false)
     {
-        Transform chatMessageContainer = CreateChatMessageContainer(chatMessage);
+        Transform chatMessageContainer = CreateChatMessageContainer(chatMessage, true);
 
-        UnityEngine.UI.VerticalLayoutGroup vlg = chatMessageContainer.GetChild(1).GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
-        vlg.childControlWidth = false; // helps keep image aspect correct
+        RectTransform verticalLayoutRT = 
+            chatMessageContainer.GetChild(1).GetComponent<RectTransform>();
 
-        Transform timestamp = chatMessageContainer.GetChild(1).GetChild(0);
-        timestamp.GetComponent<RectTransform>().sizeDelta = new Vector2(
-            vlg.transform.GetComponent<RectTransform>().sizeDelta.x,
-            timestamp.GetComponent<RectTransform>().sizeDelta.y
-        );
+        RectTransform timestampRT = chatMessageContainer.GetChild(1).GetChild(0).GetComponent<RectTransform>();
+        timestampRT.sizeDelta = new Vector2(verticalLayoutRT.sizeDelta.x, timestampRT.sizeDelta.y);
 
-        Transform message = chatMessageContainer.GetChild(1).GetChild(1);
-        Destroy(message.gameObject);
-
-        message = new GameObject("ImageMessage").transform;
-        message.SetParent(chatMessageContainer.GetChild(1));
-
-        UnityEngine.UI.RawImage rawImage = message.gameObject.AddComponent<UnityEngine.UI.RawImage>();
+        UnityEngine.UI.RawImage rawImage = 
+            chatMessageContainer.GetChild(1).GetChild(1).GetChild(0).GetComponent<UnityEngine.UI.RawImage>();
 
         if (fetchFromCache)
         {

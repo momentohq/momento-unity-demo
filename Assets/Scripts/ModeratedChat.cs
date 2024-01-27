@@ -49,7 +49,14 @@ public class ModeratedChat : MonoBehaviour
     public GameObject ChatMessagePrefab;
     public GameObject ImageMessagePrefab;
 
+    Dictionary<string, Color> usernameColorMap = new Dictionary<string, Color>();
+    static readonly string[] colors = { "#C2B2A9", "#E1D9D5", "#EAF8B6", "#ABE7D2" };
+    Color[] unityColors = new Color[colors.Length];
+    Color mintGreen;
+
     private string clientName = "Client";
+
+    User myUser;
 
     // helper variable to update the main text area from the background thread
     //private string textAreaString = "";
@@ -66,6 +73,14 @@ public class ModeratedChat : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        for (int i = 0; i < colors.Length; i++)
+        {
+            Color unityColor;
+            ColorUtility.TryParseHtmlString(colors[i], out unityColor);
+            unityColors[i] = unityColor;
+        }
+        ColorUtility.TryParseHtmlString("#00c88c", out mintGreen);
+
         //if (tokenVendingMachineURL == "")
         //{
         //    Debug.LogError("Token Vending Machine URL is not specified!");
@@ -75,10 +90,46 @@ public class ModeratedChat : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
+    Color GetUsernameColor(string username)
+    {
+        if (!usernameColorMap.ContainsKey(username))
+        {
+            // https://stackoverflow.com/a/24031467
+            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(username);
+                byte[] hashBytes = md5.ComputeHash(inputBytes);
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("X2"));
+                }
+                string hash = sb.ToString();
+                int colorIndex = Convert.ToInt32(hash.Substring(0, 1), 16) % colors.Length;
+
+                usernameColorMap[username] = unityColors[colorIndex];
+            }
+        }
+        return usernameColorMap[username];
+    }
+
     Transform CreateChatMessageContainer(ChatMessageEvent chatMessage, bool imagePrefab = false)
     {
         Transform chatMessageContainer = GameObject.Instantiate(
             imagePrefab ? ImageMessagePrefab : ChatMessagePrefab).transform;
+
+        // TODO: maybe username should be passed in, but the JavaScript version passes
+        // in the id, so let's match that for now...
+        Color color = GetUsernameColor(chatMessage.user.id);
+
+        UnityEngine.UI.Image userBubbleImage = chatMessageContainer.GetChild(0).GetComponent<UnityEngine.UI.Image>();
+        userBubbleImage.color = color;
+
+        if (chatMessage.user.id == myUser.id)
+        {
+            UnityEngine.UI.Image messageColor = chatMessageContainer.GetChild(1).GetChild(1).GetComponent<UnityEngine.UI.Image>();
+            messageColor.color = mintGreen;
+        }
 
         TextMeshProUGUI userBubbleTMP = chatMessageContainer.GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>();
         userBubbleTMP.text = chatMessage.user.username.Substring(0, 1);
@@ -271,8 +322,10 @@ public class ModeratedChat : MonoBehaviour
         TokenResponse tokenResponse = null;
         string error = "";
 
+        myUser = new User { username = name, id = Guid.NewGuid().ToString() };
+
         yield return TranslationApi.CreateToken(
-            new User { username = name, id = Guid.NewGuid().ToString() },
+            myUser,
             response => { tokenResponse = response; },
             _error => { error = _error; }
         );

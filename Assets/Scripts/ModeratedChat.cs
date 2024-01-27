@@ -138,6 +138,11 @@ public class ModeratedChat : MonoBehaviour
         DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(chatMessage.timestamp);
         timestampTMP.text = chatMessage.user.username + " - " + dateTimeOffset.ToLocalTime().ToString("t");
 
+        if (chatMessage.user.id == myUser.id)
+        {
+            timestampTMP.text += " (You)";
+        }
+
         return chatMessageContainer;
     }
 

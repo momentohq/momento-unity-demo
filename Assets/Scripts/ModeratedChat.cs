@@ -43,6 +43,8 @@ public class ModeratedChat : MonoBehaviour
 
     public TMP_Dropdown tmpLanguageDropdown;
 
+    public UnityEngine.UI.Button sendMessageButton;
+
     private Dictionary<int, string> dropdownValueToLanguage = new Dictionary<int, string>();
     private string currentLanguage = "en";
 
@@ -512,18 +514,23 @@ public class ModeratedChat : MonoBehaviour
 
         inputTextField.readOnly = messageInputReadOnly;
 
-        if (!messageInputReadOnly && Input.GetKeyDown(KeyCode.Return))
+        if (!messageInputReadOnly)
         {
-            // make sure the input field is focused on and it's not empty...
-            if ((eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
-                && inputTextField.text != "")
+            sendMessageButton.interactable = inputTextField.text != "";
+
+            if (Input.GetKeyDown(KeyCode.Return))
             {
-                PublishMessage();
-            }
-            else if ((eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
-                     && nameInputTextField.text != "")
-            {
-                SetName();
+                // make sure the input field is focused on and it's not empty...
+                if ((eventSystem.currentSelectedGameObject == inputTextField.gameObject || inputTextField.isFocused)
+                    && inputTextField.text != "")
+                {
+                    PublishMessage();
+                }
+                else if ((eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
+                         && nameInputTextField.text != "")
+                {
+                    SetName();
+                }
             }
         }
     }

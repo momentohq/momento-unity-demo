@@ -490,12 +490,10 @@ public class ModeratedChat : MonoBehaviour
                 Transform chatMessageContainer;
                 if (chatMessage.messageType == "image")
                 {
-                    // TODO
                     chatMessageContainer = CreateImageChat(chatMessage, true);
                 }
                 else
                 {
-                    // TODO: do this on the main thread...
                     chatMessageContainer = CreateTextChat(chatMessage);
                 }
                 chatMessageContainer.SetParent(ScrollingContentContainer.transform, false);
@@ -503,11 +501,18 @@ public class ModeratedChat : MonoBehaviour
             }
             chatsToConsumeOnMainThread.Clear();
 
-            // TODO: add thread lock
             foreach (var tuple in imageChatsToUpdateOnMainThread)
             {
                 UpdateImageChat(tuple.Item1, tuple.Item2);
-                RebuildChatMessageLayout(tuple.Item1.transform.parent.parent);
+
+                // TODO: this rebuild isn't working anymore... so we just rebuild the entire window
+                // at the end for now...
+                //    RebuildChatMessageLayout(tuple.Item1.transform.parent.parent.parent);
+            }
+
+            if (imageChatsToUpdateOnMainThread.Count > 0)
+            {
+                RebuildChatMessageLayout(ScrollingContentContainer.transform);
             }
             imageChatsToUpdateOnMainThread.Clear();
         }

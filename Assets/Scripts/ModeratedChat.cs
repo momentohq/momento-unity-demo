@@ -134,7 +134,7 @@ public class ModeratedChat : MonoBehaviour
         }
 
         TextMeshProUGUI userBubbleTMP = chatMessageContainer.GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>();
-        userBubbleTMP.text = chatMessage.user.username.Substring(0, 1);
+        userBubbleTMP.text = chatMessage.user.username.Substring(0, 1).ToUpper();
 
         TextMeshProUGUI timestampTMP = chatMessageContainer.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>();
         DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(chatMessage.timestamp);
@@ -187,10 +187,12 @@ public class ModeratedChat : MonoBehaviour
         if (fetchFromCache)
         {
             string imageId = chatMessage.message;
+            Debug.Log("Fetching image " + imageId + " from cache...");
             Task.Run(async () =>
             {
                 await MomentoWebApi.GetImageMessage(imageId, base64image =>
                 {
+                    Debug.Log("Got image " + imageId + " from cache...");
                     var tuple = new Tuple<UnityEngine.UI.RawImage, string>(rawImage, base64image);
                     lock (chatLock)
                     {
@@ -270,6 +272,8 @@ public class ModeratedChat : MonoBehaviour
 
                                 ChatMessageEvent chatMessage = JsonUtility.FromJson<ChatMessageEvent>(text.Value);
 
+                                // we can't update the Unity UI in a background thread, so let's save
+                                // the chat message for consumption on the main thread
                                 lock (chatLock)
                                 {
                                     chatsToConsumeOnMainThread.Add(chatMessage);
@@ -299,10 +303,7 @@ public class ModeratedChat : MonoBehaviour
         }
         finally
         {
-            // TODO
-            Debug.Log("Finished Momento Toipc subscription in main app");
-            //client.Dispose();
-            //topicClient.Dispose();
+            Debug.Log("Finished Momento Toipc subscription in main thread");
         }
     }
 
@@ -314,7 +315,7 @@ public class ModeratedChat : MonoBehaviour
         string message = inputTextField.text;
         Task.Run(async () =>
         {
-            await MomentoWebApi.SendTextMessage("text", message, currentLanguage); // TODO
+            await MomentoWebApi.SendTextMessage(MessageTypes.text, message, currentLanguage);
         });
         inputTextField.text = "";
         inputTextField.ActivateInputField();

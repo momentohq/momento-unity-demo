@@ -34,11 +34,16 @@ public class LatestChats
 {
     public ChatMessageEvent[] messages;
 }
+public enum MessageTypes
+{
+    text,
+    image
+};
 
 [Serializable]
 public class PostMessageEvent
 {
-    public string messageType;
+    public string messageType; // should be either "text" or "image"
     public string message;
     public string sourceLanguage;
     public long timestamp;

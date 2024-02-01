@@ -156,11 +156,12 @@ public static class MomentoWebApi
         } 
         else if (response is CacheGetResponse.Miss)
         {
-            // TODO
+            Debug.LogError("Could not find image " + imageId + " in the cache");
         }
         else if (response is CacheGetResponse.Error)
         {
-            // TODO
+            Debug.LogError("Error trying to get image " + imageId + ": Error Code " +
+                (response as CacheGetResponse.Error).ErrorCode);
         }
     }
 
@@ -189,13 +190,11 @@ public static class MomentoWebApi
         }
     }
 
-    // messageType should be either "text" or "image"
-    // TODO is there a way to enforce this in C#?
-    public static async Task SendTextMessage(string messageType, string message, string sourceLanguage)
+    public static async Task SendTextMessage(MessageTypes messageType, string message, string sourceLanguage)
     {
         PostMessageEvent pme = new PostMessageEvent
         {
-            messageType = messageType,
+            messageType = Enum.GetName(typeof(MessageTypes), messageType),
             message = message,
             sourceLanguage = sourceLanguage,
             timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
@@ -213,11 +212,12 @@ public static class MomentoWebApi
         CacheSetResponse response = await cacheClient.SetAsync(cacheName, imageId, base64Image);
         if (response is CacheSetResponse.Success)
         {
-            await SendTextMessage("image", imageId, sourceLanguage);
+            await SendTextMessage(MessageTypes.image, imageId, sourceLanguage);
         }
         else if (response is CacheSetResponse.Error)
         {
-            // TODO
+            Debug.LogError("Error setting image in cache, error code " +
+                (response as CacheSetResponse.Error).ErrorCode);
         }
     }
 }

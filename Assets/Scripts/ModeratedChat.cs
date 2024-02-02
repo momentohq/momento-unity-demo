@@ -9,6 +9,9 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 using SFB;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
 
 public class ModeratedChat : MonoBehaviour
 {
@@ -324,7 +327,6 @@ public class ModeratedChat : MonoBehaviour
     private IEnumerator GetTokenFromVendingMachine(string name)
     {
         //textAreaString = "LOADING...";
-        // TODO: make lang dropdown disabled...
         messageInputReadOnly = true;
 
         TokenResponse tokenResponse = null;
@@ -397,6 +399,7 @@ public class ModeratedChat : MonoBehaviour
 
         StartCoroutine(TranslationApi.GetSupportedLanguages(languageOptions =>
         {
+            tmpLanguageDropdown.interactable = true;
             Debug.Log("Got language options: " + languageOptions);
             List<string> dropdownOptions = new List<string>();
             foreach (LanguageOption languageOption in languageOptions.supportedLanguages)
@@ -439,7 +442,30 @@ public class ModeratedChat : MonoBehaviour
             }
             Debug.Log("Loading in image at path " + paths[0]);
 
-            imageBytes = System.IO.File.ReadAllBytes(paths[0]);
+            imageBytes = File.ReadAllBytes(paths[0]);
+
+            // run image compression
+            // https://stackoverflow.com/a/9432319
+            var jpegQuality = 50;
+            System.Drawing.Image image;
+            using (var inputStream = new MemoryStream(imageBytes))
+            {
+                image = System.Drawing.Image.FromStream(inputStream);
+                var jpegEncoder = ImageCodecInfo.GetImageDecoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
+                var encoderParameters = new EncoderParameters(1);
+                encoderParameters.Param[0] = new EncoderParameter(Encoder.Quality, jpegQuality);
+                byte[] outputBytes;
+                using (var outputStream = new MemoryStream())
+                {
+                    image.Save(outputStream, jpegEncoder, encoderParameters);
+                    outputBytes = outputStream.ToArray();
+                    Debug.Log("Image compression changed image byte size from " + imageBytes.Length + " to " + outputBytes.Length);
+                    imageBytes = outputBytes;
+                }
+            }
+
+            // TODO: ensure file size is under 1MB (Momento Cache max size)
+            // See https://docs.momentohq.com/cache/limits
 
             // preview image
             Texture2D tex = new Texture2D(2, 2); // size doesn't matter

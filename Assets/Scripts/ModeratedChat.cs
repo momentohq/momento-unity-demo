@@ -35,14 +35,6 @@ public class ModeratedChat : MonoBehaviour
     public GameObject imagePreview;
 
     public EventSystem eventSystem;
-    
-    // The Token Vending Machine URL should be suffixed with "?name="
-    // such as like https://9jkmukxn68.execute-api.us-west-2.amazonaws.com/prod?name=
-    // See the instructions at the following URL for more information:
-    // https://github.com/momentohq/client-sdk-javascript/tree/main/examples/nodejs/token-vending-machine
-    public string tokenVendingMachineURL = "";
-
-    public TextMeshProUGUI titleText;
 
     public TMP_Dropdown tmpLanguageDropdown;
 
@@ -53,6 +45,8 @@ public class ModeratedChat : MonoBehaviour
 
     public GameObject ChatMessagePrefab;
     public GameObject ImageMessagePrefab;
+
+    public GameObject loadingCircle;
 
     Dictionary<string, Color> usernameColorMap = new Dictionary<string, Color>();
     static readonly string[] colors = { "#C2B2A9", "#E1D9D5", "#EAF8B6", "#ABE7D2" };
@@ -86,12 +80,6 @@ public class ModeratedChat : MonoBehaviour
         }
         ColorUtility.TryParseHtmlString("#00c88c", out mintGreen);
 
-        //if (tokenVendingMachineURL == "")
-        //{
-        //    Debug.LogError("Token Vending Machine URL is not specified!");
-        //    titleText.text = "ERROR: Token Vending Machine URL is not specified!\n\nPlease set tokenVendingMachineURL appropriately.";
-        //    titleText.color = Color.red;
-        //}
         nameInputTextField.ActivateInputField();
     }
 
@@ -371,15 +359,18 @@ public class ModeratedChat : MonoBehaviour
 
     IEnumerator GetLatestChats()
     {
+        loadingCircle.SetActive(true);
         yield return TranslationApi.GetLatestChats(
             currentLanguage,
             latestChats =>
             {
                 Debug.Log("Got latest chats: " + latestChats);
                 SetLatestChats(latestChats);
+                loadingCircle.SetActive(false);
             },
             error =>
             {
+                loadingCircle.SetActive(false);
                 Debug.LogError("Error trying to get the latest chats");
             }
         );

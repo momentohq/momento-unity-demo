@@ -1,6 +1,7 @@
 using Momento.Sdk;
 using Momento.Sdk.Auth;
 using Momento.Sdk.Config;
+using Momento.Sdk.Exceptions;
 using Momento.Sdk.Responses;
 using System;
 using System.Threading;
@@ -19,7 +20,9 @@ public static class MomentoWebApi
     private static Action<TopicMessage> _onItem = null;
     private static Action<TopicSubscribeResponse.Error> _onSubscriptionError = null;
 
+    public static Action invokeGetAuthToken = null;
     public static ICredentialProvider authProvider = null;
+    public static User user = null;
 
     public static void Dispose()
     {
@@ -30,29 +33,44 @@ public static class MomentoWebApi
         _cacheClient = null;
         _topicClient = null;
     }
+    private static async Task SetupNewClients()
+    {
+        Debug.Log("Setting up new cache and topic clients...");
+        authProvider = null;
+        invokeGetAuthToken.Invoke();
+        Debug.Log("Waiting for new auth token...");
+        while (authProvider == null)
+        {
+            Thread.Sleep(33);
+        }
+        Debug.Log("Got new auth token");
 
-    private static ICacheClient GetCacheClient()
+        _cacheClient = new CacheClient(
+            Configurations.Laptop.V1(),
+            authProvider,
+            TimeSpan.FromSeconds(24 * 60 * 60)
+        );
+        _topicClient = new TopicClient(
+            TopicConfigurations.Laptop.latest(),
+            authProvider
+        );
+    }
+
+    private static async Task<ICacheClient> GetCacheClient()
     {
         if (_cacheClient == null)
         {
-            _cacheClient = new CacheClient(
-                Configurations.Laptop.V1(),
-                authProvider,
-                TimeSpan.FromSeconds(24 * 60 * 60)
-            );
+            await SetupNewClients();
         }
 
         return _cacheClient;
     }
 
-    private static ITopicClient GetTopicClient()
+    private static async Task<ITopicClient> GetTopicClient()
     {
         if (_topicClient == null)
         {
-            _topicClient = new TopicClient(
-                TopicConfigurations.Laptop.latest(), 
-                authProvider
-            );
+            await SetupNewClients();
         }
 
         return _topicClient;
@@ -65,12 +83,6 @@ public static class MomentoWebApi
         Action<TopicSubscribeResponse.Error> onSubscriptionError,
         bool cacheActions = true
     ) {
-        if (authProvider == null)
-        {
-            Debug.LogError("Authentication not set up yet, cannot subscribe to topic");
-            return;
-        }
-
         string topicName = "chat-" + languageCode;
 
         // cache actions for reconnects
@@ -81,12 +93,12 @@ public static class MomentoWebApi
             _onSubscriptionError = onSubscriptionError;
         }
 
-        // clear current client...
+        // clear current client and cancel current subscription
         Dispose();
 
-        // Set up the client
-        ICacheClient client = GetCacheClient();
-        ITopicClient topicClient = GetTopicClient();
+        // Set up new clients
+        ICacheClient client = await GetCacheClient();
+        ITopicClient topicClient = await GetTopicClient();
 
         try
         {
@@ -140,7 +152,7 @@ public static class MomentoWebApi
         }
         finally
         {
-            Debug.Log("Disposing cache and topic clients...");
+            Debug.Log("Topic subscription cancelled");
             client?.Dispose();
             topicClient?.Dispose();
         }
@@ -148,7 +160,7 @@ public static class MomentoWebApi
 
     public static async Task GetImageMessage(string imageId, Action<string> onHit)
     {
-        ICacheClient cache = GetCacheClient();
+        ICacheClient cache = await GetCacheClient();
         CacheGetResponse response = await cache.GetAsync(cacheName, imageId);
         if (response is CacheGetResponse.Hit)
         {
@@ -167,7 +179,7 @@ public static class MomentoWebApi
 
     public static async Task Publish(string targetLanguage, string message)
     {
-        ITopicClient topicClient = GetTopicClient();
+        ITopicClient topicClient = await GetTopicClient();
         var publishResponse = await topicClient.PublishAsync(cacheName, publishTopicName, message);
         switch (publishResponse)
         {
@@ -207,7 +219,7 @@ public static class MomentoWebApi
     public static async Task SendImageMessage(string base64Image, string sourceLanguage)
     {
         string imageId = "image-" + Guid.NewGuid().ToString();
-        ICacheClient cacheClient = GetCacheClient();
+        ICacheClient cacheClient = await GetCacheClient();
         Debug.Log("Setting image in cache...");
         CacheSetResponse response = await cacheClient.SetAsync(cacheName, imageId, base64Image);
         if (response is CacheSetResponse.Success)

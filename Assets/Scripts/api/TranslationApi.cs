@@ -77,8 +77,6 @@ public static class TranslationApi
 
         string body = JsonUtility.ToJson(user);
 
-        Debug.Log(body);
-
         const string contentType = "application/json";
 
         using (UnityWebRequest webRequest = UnityWebRequest.Post(url, body, contentType))

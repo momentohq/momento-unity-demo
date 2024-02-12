@@ -16,6 +16,7 @@ public static class MomentoWebApi
     private const string cacheName = "moderator";
     private const string publishTopicName = "chat-publish";
 
+    private static string _languageCode = "";
     private static Action _onSubscribed = null;
     private static Action<TopicMessage> _onItem = null;
     private static Action<TopicSubscribeResponse.Error> _onSubscriptionError = null;
@@ -81,13 +82,14 @@ public static class MomentoWebApi
         Action onSubscribed,
         Action<TopicMessage> onItem,
         Action<TopicSubscribeResponse.Error> onSubscriptionError,
-        bool cacheActions = true
+        bool cacheActionsAndLanguage = true
     ) {
         string topicName = "chat-" + languageCode;
 
         // cache actions for reconnects
-        if (cacheActions)
+        if (cacheActionsAndLanguage)
         {
+            _languageCode = languageCode;
             _onSubscribed = onSubscribed;
             _onItem = onItem;
             _onSubscriptionError = onSubscriptionError;
@@ -174,6 +176,17 @@ public static class MomentoWebApi
         {
             Debug.LogError("Error trying to get image " + imageId + ": Error Code " +
                 (response as CacheGetResponse.Error).ErrorCode);
+
+            if ((response as CacheGetResponse.Error).ErrorCode == MomentoErrorCode.AUTHENTICATION_ERROR)
+            {
+                Debug.LogError("token has likely expired, going to refresh subscription and retry fetching image from cache");
+                await SubscribeToTopic(_languageCode, async () =>
+                {
+                    Debug.Log("refresh of subscription worked, retrying cache fetch now...");
+                    _onSubscribed.Invoke();
+                    await GetImageMessage(imageId, onHit);
+                }, _onItem, _onSubscriptionError, false);
+            }
         }
     }
 
@@ -190,7 +203,7 @@ public static class MomentoWebApi
                 Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
                 if (error.ErrorCode == Momento.Sdk.Exceptions.MomentoErrorCode.AUTHENTICATION_ERROR)
                 {
-                    Debug.LogError("token has expired, going to refresh subscription and retry publish");
+                    Debug.LogError("token has likely expired, going to refresh subscription and retry publish");
                     await SubscribeToTopic(targetLanguage, async () =>
                     {
                         Debug.Log("refresh of subscription worked, retrying publish now...");

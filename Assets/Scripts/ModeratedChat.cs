@@ -69,6 +69,8 @@ public class ModeratedChat : MonoBehaviour
 
     private byte[] imageBytes;
 
+    private bool getAuthTokenNextFrame = false;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -81,6 +83,11 @@ public class ModeratedChat : MonoBehaviour
         ColorUtility.TryParseHtmlString("#00c88c", out mintGreen);
 
         nameInputTextField.ActivateInputField();
+
+        MomentoWebApi.invokeGetAuthToken = () =>
+        {
+            this.getAuthTokenNextFrame = true;
+        };
     }
 
     Color GetUsernameColor(string username)
@@ -294,7 +301,7 @@ public class ModeratedChat : MonoBehaviour
         }
         finally
         {
-            Debug.Log("Finished Momento Toipc subscription in main thread");
+            Debug.Log("Finished Momento Topic subscription in main thread");
         }
     }
 
@@ -312,15 +319,10 @@ public class ModeratedChat : MonoBehaviour
         inputTextField.ActivateInputField();
     }
 
-    private IEnumerator GetTokenFromVendingMachine(string name)
+    private IEnumerator GetAuthToken()
     {
-        //textAreaString = "LOADING...";
-        messageInputReadOnly = true;
-
         TokenResponse tokenResponse = null;
         string error = "";
-
-        myUser = new User { username = name, id = Guid.NewGuid().ToString() };
 
         yield return TranslationApi.CreateToken(
             myUser,
@@ -328,11 +330,15 @@ public class ModeratedChat : MonoBehaviour
             _error => { error = _error; }
         );
 
-        if (tokenResponse != null) {
+        if (tokenResponse != null)
+        {
             Debug.Log("authToken: " + tokenResponse.token);
 
             DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds((long)tokenResponse.expiresAtEpoch);
-            Debug.Log("expiresAt: " + tokenResponse.expiresAtEpoch + " (" + dateTimeOffset.ToLocalTime() + ")");
+
+            long numSecondsToExpiration = (long)tokenResponse.expiresAtEpoch - DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            Debug.Log("expiresAt: " + tokenResponse.expiresAtEpoch + " (" + dateTimeOffset.ToLocalTime() +
+                "), which is " + numSecondsToExpiration + " seconds from now");
 
             StringMomentoTokenProvider? authProvider = null;
             try
@@ -345,16 +351,27 @@ public class ModeratedChat : MonoBehaviour
                 Debug.LogError("Invalid auth token provided! " + e);
                 yield break; // TODO
             }
-
-            yield return GetLatestChats();
-
-            Task.Run(async () => { await Main(); });
-        } 
+        }
         else
         {
             //textAreaString = error;
             this.error = true;
         }
+    }
+
+    private IEnumerator SetupChat(string name)
+    {
+        messageInputReadOnly = true;
+
+        myUser = new User { username = name, id = Guid.NewGuid().ToString() };
+        MomentoWebApi.user = myUser;
+
+        yield return GetAuthToken();
+
+        // start the subscription in the background and then get latest chats...
+        Task.Run(async () => { await Main(); });
+
+        yield return GetLatestChats();
     }
 
     IEnumerator GetLatestChats()
@@ -386,8 +403,9 @@ public class ModeratedChat : MonoBehaviour
         messagingCanvas.SetActive(true);
         inputTextField.ActivateInputField();
 
-        StartCoroutine(GetTokenFromVendingMachine(clientName));
+        StartCoroutine(SetupChat(clientName));
 
+        // get supported languages in parallel with setting up the chat
         StartCoroutine(TranslationApi.GetSupportedLanguages(languageOptions =>
         {
             tmpLanguageDropdown.interactable = true;
@@ -494,6 +512,11 @@ public class ModeratedChat : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (this.getAuthTokenNextFrame)
+        {
+            this.getAuthTokenNextFrame = false;
+            StartCoroutine(GetAuthToken());
+        }
         // Update UI text on the main thread
         //textArea.text = textAreaString;
         //if (this.error)

@@ -179,6 +179,7 @@ public static class MomentoWebApi
 
             if ((response as CacheGetResponse.Error).ErrorCode == MomentoErrorCode.AUTHENTICATION_ERROR)
             {
+                // TODO: might want to put a limit on out many retries we do here...
                 Debug.LogError("token has likely expired, going to refresh subscription and retry fetching image from cache");
                 await SubscribeToTopic(_languageCode, async () =>
                 {
@@ -203,6 +204,7 @@ public static class MomentoWebApi
                 Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
                 if (error.ErrorCode == Momento.Sdk.Exceptions.MomentoErrorCode.AUTHENTICATION_ERROR)
                 {
+                    // TODO: might want to put a limit on out many retries we do here...
                     Debug.LogError("token has likely expired, going to refresh subscription and retry publish");
                     await SubscribeToTopic(targetLanguage, async () =>
                     {
@@ -243,6 +245,18 @@ public static class MomentoWebApi
         {
             Debug.LogError("Error setting image in cache, error code " +
                 (response as CacheSetResponse.Error).ErrorCode);
+
+            if ((response as CacheSetResponse.Error).ErrorCode == MomentoErrorCode.AUTHENTICATION_ERROR)
+            {
+                // TODO: might want to put a limit on out many retries we do here...
+                Debug.LogError("token has likely expired, going to refresh subscription and retry setting image in cache");
+                await SubscribeToTopic(_languageCode, async () =>
+                {
+                    Debug.Log("refresh of subscription worked, retrying cache image setting now...");
+                    _onSubscribed.Invoke();
+                    await SendImageMessage(base64Image, sourceLanguage);
+                }, _onItem, _onSubscriptionError, false);
+            }
         }
     }
 }

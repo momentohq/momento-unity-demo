@@ -9,9 +9,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 using SFB;
-using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 
 public class ModeratedChat : MonoBehaviour
 {
@@ -453,32 +451,23 @@ public class ModeratedChat : MonoBehaviour
 
             imageBytes = File.ReadAllBytes(paths[0]);
 
-            // run image compression
-            // https://stackoverflow.com/a/9432319
-            var jpegQuality = 50;
-            System.Drawing.Image image;
-            using (var inputStream = new MemoryStream(imageBytes))
-            {
-                image = System.Drawing.Image.FromStream(inputStream);
-                var jpegEncoder = ImageCodecInfo.GetImageDecoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
-                var encoderParameters = new EncoderParameters(1);
-                encoderParameters.Param[0] = new EncoderParameter(Encoder.Quality, jpegQuality);
-                byte[] outputBytes;
-                using (var outputStream = new MemoryStream())
-                {
-                    image.Save(outputStream, jpegEncoder, encoderParameters);
-                    outputBytes = outputStream.ToArray();
-                    Debug.Log("Image compression changed image byte size from " + imageBytes.Length + " to " + outputBytes.Length);
-                    imageBytes = outputBytes;
-                }
-            }
+            const int jpegQuality = 50;
+            Texture2D imageTexture = new Texture2D(1, 1);
+            ImageConversion.LoadImage(imageTexture, imageBytes);
+
+            byte[] outputBytes;
+            outputBytes = imageTexture.EncodeToJPG(jpegQuality);
+
+            float percentChange = (float) outputBytes.Length / (float) imageBytes.Length * 100;
+
+            Debug.Log("Image compression changed image byte size from " + imageBytes.Length + " to " + outputBytes.Length + " (" + percentChange + "%)");
 
             // TODO: ensure file size is under 1MB (Momento Cache max size)
             // See https://docs.momentohq.com/cache/limits
 
             // preview image
             Texture2D tex = new Texture2D(2, 2); // size doesn't matter
-            ImageConversion.LoadImage(tex, imageBytes);
+            ImageConversion.LoadImage(tex, outputBytes);
             UnityEngine.UI.RawImage rawImage = imagePreview.transform.GetComponentInChildren<UnityEngine.UI.RawImage>();
             rawImage.texture = tex;
             imagePreview.SetActive(true);

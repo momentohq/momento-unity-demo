@@ -442,7 +442,7 @@ public class ModeratedChat : MonoBehaviour
             };
             string[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", extensions, false);
 
-            if (paths.Length == 0)
+            if (paths.Length == 0 || paths[0] == "")
             {
                 Debug.Log("No image selected");
                 return;

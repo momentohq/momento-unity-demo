@@ -45,6 +45,7 @@ public class ModeratedChat : MonoBehaviour
     public GameObject ImageMessagePrefab;
 
     public GameObject loadingCircle;
+    public GameObject errorCanvas;
 
     Dictionary<string, Color> usernameColorMap = new Dictionary<string, Color>();
     static readonly string[] colors = { "#C2B2A9", "#E1D9D5", "#EAF8B6", "#ABE7D2" };
@@ -56,8 +57,8 @@ public class ModeratedChat : MonoBehaviour
     User myUser;
 
     // helper variable to update the main text area from the background thread
-    //private string textAreaString = "";
-    private bool error = false;
+    private bool showErrorNextFrame = false;
+    private string errorMessage = "";
 
     private bool messageInputReadOnly = false;
 
@@ -65,7 +66,17 @@ public class ModeratedChat : MonoBehaviour
     private List<ChatMessageEvent> chatsToConsumeOnMainThread = new List<ChatMessageEvent>();
     private List<Tuple<UnityEngine.UI.RawImage, string>> imageChatsToUpdateOnMainThread = new List<Tuple<UnityEngine.UI.RawImage, string>>();
 
+    Texture2D previewTexture;
     private byte[] imageBytes;
+    private int compressionIterations = 0;
+
+    // Ensure file size is under 1MB (Momento Cache max size)
+    // See https://docs.momentohq.com/cache/limits
+    // adjust for base64 encoding increasing the size
+    // https://stackoverflow.com/a/4715480
+    private const int maxImageBytes = 1000000 / 4 * 3;
+
+    private bool initiateImagePreview = false;
 
     private bool getAuthTokenNextFrame = false;
 
@@ -79,6 +90,8 @@ public class ModeratedChat : MonoBehaviour
             unityColors[i] = unityColor;
         }
         ColorUtility.TryParseHtmlString("#00c88c", out mintGreen);
+
+        previewTexture = new Texture2D(2, 2); // size doesn't matter
 
         nameInputTextField.ActivateInputField();
 
@@ -282,18 +295,18 @@ public class ModeratedChat : MonoBehaviour
 
                             break;
                         case TopicMessage.Error error:
-                            Debug.LogError(String.Format("Received error message from topic: {0}",
-                            error.Message));
-                            //textAreaString += "Error receiving message, cancelling...";
-                            this.error = true;
+                            string errorMessage = String.Format("Received error message from topic: {0}",
+                                error.Message);
+                            Debug.LogError(errorMessage);
+                            ShowError(errorMessage);
                             break;
                     }
                 },
                 error =>
                 {
-                    Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
-                    //textAreaString += "Error trying to connect to chat, cancelling...";
-                    this.error = true;
+                    string errorMessage = String.Format("Error subscribing to a topic: {0}", error.Message);
+                    Debug.LogError(errorMessage);
+                    ShowError(errorMessage);
                 }
             );
         }
@@ -346,14 +359,15 @@ public class ModeratedChat : MonoBehaviour
             }
             catch (InvalidArgumentException e)
             {
-                Debug.LogError("Invalid auth token provided! " + e);
-                yield break; // TODO
+                string errorMessage = "Invalid auth token provided! " + e;
+                Debug.LogError(errorMessage);
+                ShowError(errorMessage);
+                yield break;
             }
         }
         else
         {
-            //textAreaString = error;
-            this.error = true;
+            ShowError("Could not get authentication token. Please restart to try again.");
         }
     }
 
@@ -433,8 +447,151 @@ public class ModeratedChat : MonoBehaviour
         Task.Run(async () => { await Main(); });
     }
 
+    // https://gamedev.stackexchange.com/a/114768
+    public Texture2D ResizeTexture(Texture2D source, int newWidth, int newHeight)
+    {
+        source.filterMode = FilterMode.Point;
+        RenderTexture rt = RenderTexture.GetTemporary(newWidth, newHeight);
+        rt.filterMode = FilterMode.Point;
+        RenderTexture.active = rt;
+        Graphics.Blit(source, rt);
+        Texture2D nTex = new Texture2D(newWidth, newHeight);
+        nTex.ReadPixels(new Rect(0, 0, newWidth, newHeight), 0, 0);
+        nTex.Apply();
+        RenderTexture.active = null;
+        RenderTexture.ReleaseTemporary(rt);
+        return nTex;
+    }
+
+    IEnumerator CompressOrResizeImage(int jpegQuality = 75, Action<bool> onFinish = null)
+    {
+        compressionIterations++;
+        ImageConversion.LoadImage(previewTexture, imageBytes); // expensive operation
+        yield return new WaitForSecondsRealtime(0.3f);
+
+        float originalSize = imageBytes.Length;
+
+        const float maxSize = 800f;
+        if (previewTexture.width > maxSize || previewTexture.height > maxSize)
+        {
+            float adjustFactor = 1;
+            if (previewTexture.width > previewTexture.height)
+            {
+                adjustFactor = maxSize / previewTexture.width;
+            }
+            else
+            {
+                adjustFactor = maxSize / previewTexture.height;
+            }
+
+            int targetWidth = (int) (adjustFactor * previewTexture.width);
+            int targetHeight = (int) (adjustFactor * previewTexture.height);
+            Debug.Log("Resizing image from " + previewTexture.width + "x" + 
+                previewTexture.height + " to " + targetWidth + "x" + targetHeight);
+
+            Texture2D scaled = ResizeTexture(previewTexture, targetWidth, targetHeight);
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            byte[] newBytes = scaled.EncodeToJPG(100);
+
+            float percentChange = (float)newBytes.Length / originalSize * 100;
+            Debug.Log("Image resizing changed image byte size from " + originalSize + 
+                " to " + newBytes.Length + " (" + percentChange + "%)");
+
+            if (newBytes.Length > imageBytes.Length)
+            {
+                // we still want to resize, though, to fit in the UI...
+                Debug.LogWarning("Image size increased after resize...");
+            }
+            imageBytes = newBytes;
+            yield return new WaitForSecondsRealtime(0.3f);
+        } 
+        else if (imageBytes.Length > maxImageBytes)
+        {
+            Debug.Log("Trying to compress image of size " + originalSize + 
+                " (iteration " + compressionIterations + ")...");
+
+            byte[] newBytes = previewTexture.EncodeToJPG(jpegQuality); // expensive operation
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            float percentChange = (float)newBytes.Length / originalSize * 100;
+            Debug.Log("Image compression changed image byte size from " + 
+                originalSize + " to " + newBytes.Length + " (" + percentChange + "%)");
+
+            if (newBytes.Length > imageBytes.Length)
+            {
+                Debug.LogWarning("Image size increased! Not using compressed image after all...");
+            }
+            else
+            {
+                imageBytes = newBytes;
+            }
+        }
+
+        const int maxIterations = 3;
+
+        if (imageBytes.Length > maxImageBytes)
+        {
+            if (compressionIterations < maxIterations)
+            {
+                Debug.Log("Image still bigger than ~1MB, will try to compress again");
+                yield return CompressOrResizeImage((int)(0.5 * jpegQuality), onFinish);
+            }
+            else
+            {
+                Debug.LogError("Image still bigger than ~1MB, and already tried 3 times to compress, stopping...");
+                onFinish(false);
+            }
+        }
+        else
+        {
+            onFinish(true);
+        }
+    }
+
+    IEnumerator LoadAndPreviewImage(string path)
+    {
+        loadingCircle.SetActive(true);
+        messageInputReadOnly = true;
+        yield return new WaitForSecondsRealtime(0.3f); // let the circle spin a little bit first...
+
+        imageBytes = File.ReadAllBytes(path);
+        yield return null;
+
+        bool imageSizeWithinCacheLimits = false;
+        compressionIterations = 0;
+        yield return CompressOrResizeImage(75, (withinCacheLimits) => { 
+            imageSizeWithinCacheLimits = withinCacheLimits; 
+        });
+
+
+        loadingCircle.SetActive(false);
+
+        if (imageSizeWithinCacheLimits)
+        {
+            // preview image
+            ImageConversion.LoadImage(previewTexture, imageBytes);
+
+            UnityEngine.UI.RawImage rawImage = 
+                imagePreview.transform.GetComponentInChildren<UnityEngine.UI.RawImage>();
+            rawImage.texture = previewTexture;
+            imagePreview.SetActive(true);
+        } 
+        else
+        {
+            // show error that image is too big
+            ShowError("Image size is too big. Could not compress under 1MB. Please try a smaller image...");
+        }
+    }
+
     public void ImageButtonClicked()
     {
+        if (messageInputReadOnly)
+        {
+            Debug.Log("Cannot load image yet, wait until on-going tasks are finished...");
+            return;
+        }
+
         try
         {
             var extensions = new[] {
@@ -449,28 +606,7 @@ public class ModeratedChat : MonoBehaviour
             }
             Debug.Log("Loading in image at path " + paths[0]);
 
-            imageBytes = File.ReadAllBytes(paths[0]);
-
-            const int jpegQuality = 50;
-            Texture2D imageTexture = new Texture2D(1, 1);
-            ImageConversion.LoadImage(imageTexture, imageBytes);
-
-            byte[] outputBytes;
-            outputBytes = imageTexture.EncodeToJPG(jpegQuality);
-
-            float percentChange = (float) outputBytes.Length / (float) imageBytes.Length * 100;
-
-            Debug.Log("Image compression changed image byte size from " + imageBytes.Length + " to " + outputBytes.Length + " (" + percentChange + "%)");
-
-            // TODO: ensure file size is under 1MB (Momento Cache max size)
-            // See https://docs.momentohq.com/cache/limits
-
-            // preview image
-            Texture2D tex = new Texture2D(2, 2); // size doesn't matter
-            ImageConversion.LoadImage(tex, outputBytes);
-            UnityEngine.UI.RawImage rawImage = imagePreview.transform.GetComponentInChildren<UnityEngine.UI.RawImage>();
-            rawImage.texture = tex;
-            imagePreview.SetActive(true);
+            StartCoroutine(LoadAndPreviewImage(paths[0]));
         }
         catch (Exception e)
         {
@@ -483,12 +619,16 @@ public class ModeratedChat : MonoBehaviour
         Debug.Log("User clicked send image button");
 
         imagePreview.SetActive(false);
+        messageInputReadOnly = false;
 
         string base64Image = Convert.ToBase64String(imageBytes);
 
         Task.Run(async () =>
         {
-            await MomentoWebApi.SendImageMessage(base64Image, currentLanguage);
+            await MomentoWebApi.SendImageMessage(base64Image, currentLanguage, errorMessage =>
+            {
+                ShowError(errorMessage);
+            });
         });
     }
 
@@ -496,22 +636,38 @@ public class ModeratedChat : MonoBehaviour
     {
         Debug.Log("User canceled sending image");
         imagePreview.SetActive(false);
+        messageInputReadOnly = false;
+    }
+
+    void ShowError(string errorMessage)
+    {
+        this.errorMessage = errorMessage;
+        showErrorNextFrame = true;
+    }
+
+    IEnumerator DisplayError()
+    {
+        errorCanvas.SetActive(true);
+        TextMeshProUGUI text = errorCanvas.transform.GetComponentInChildren<TextMeshProUGUI>();
+        text.text = errorMessage;
+        yield return new WaitForSecondsRealtime(3f);
+        errorCanvas.SetActive(false);
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (this.getAuthTokenNextFrame)
+        if (getAuthTokenNextFrame)
         {
-            this.getAuthTokenNextFrame = false;
+            getAuthTokenNextFrame = false;
             StartCoroutine(GetAuthToken());
         }
-        // Update UI text on the main thread
-        //textArea.text = textAreaString;
-        //if (this.error)
-        //{
-        //    textArea.color = Color.red;
-        //}
+
+        if (showErrorNextFrame)
+        {
+            showErrorNextFrame = false;
+            StartCoroutine(DisplayError());
+        }
 
         lock (chatLock)
         {
@@ -534,10 +690,6 @@ public class ModeratedChat : MonoBehaviour
             foreach (var tuple in imageChatsToUpdateOnMainThread)
             {
                 UpdateImageChat(tuple.Item1, tuple.Item2);
-
-                // TODO: this rebuild isn't working anymore... so we just rebuild the entire window
-                // at the end for now...
-                //    RebuildChatMessageLayout(tuple.Item1.transform.parent.parent.parent);
             }
 
             if (imageChatsToUpdateOnMainThread.Count > 0)

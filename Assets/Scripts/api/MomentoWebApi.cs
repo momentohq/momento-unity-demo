@@ -231,7 +231,7 @@ public static class MomentoWebApi
         await Publish(sourceLanguage, JsonUtility.ToJson(pme));
     }
 
-    public static async Task SendImageMessage(string base64Image, string sourceLanguage)
+    public static async Task SendImageMessage(string base64Image, string sourceLanguage, Action<string> onError)
     {
         string imageId = "image-" + Guid.NewGuid().ToString();
         ICacheClient cacheClient = await GetCacheClient();
@@ -254,8 +254,12 @@ public static class MomentoWebApi
                 {
                     Debug.Log("refresh of subscription worked, retrying cache image setting now...");
                     _onSubscribed.Invoke();
-                    await SendImageMessage(base64Image, sourceLanguage);
+                    await SendImageMessage(base64Image, sourceLanguage, onError);
                 }, _onItem, _onSubscriptionError, false);
+            }
+            else if ((response as CacheSetResponse.Error).ErrorCode == MomentoErrorCode.LIMIT_EXCEEDED_ERROR)
+            {
+                onError.Invoke("Image file too big. Please try a smaller image.");
             }
         }
     }

@@ -2720,6 +2720,7 @@ MonoBehaviour:
   ChatMessagePrefab: {fileID: 2233962760622741968, guid: d5cc041f1f967ac469c258d05b7c566f, type: 3}
   ImageMessagePrefab: {fileID: 6909446837499291169, guid: 8c2cb1959bbed844da04e5d8567b2fb5, type: 3}
   loadingCircle: {fileID: 278798950}
+  errorCanvas: {fileID: 1901792433}
 --- !u!1 &986823300
 GameObject:
   m_ObjectHideFlags: 0

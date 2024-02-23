@@ -101,14 +101,14 @@ public class ModeratedChat : MonoBehaviour
         };
     }
 
-    Color GetUsernameColor(string username)
+    Color GetUsernameColor(string userID)
     {
-        if (!usernameColorMap.ContainsKey(username))
+        if (!usernameColorMap.ContainsKey(userID))
         {
             // https://stackoverflow.com/a/24031467
             using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
             {
-                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(username);
+                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(userID);
                 byte[] hashBytes = md5.ComputeHash(inputBytes);
                 System.Text.StringBuilder sb = new System.Text.StringBuilder();
                 for (int i = 0; i < hashBytes.Length; i++)
@@ -118,10 +118,10 @@ public class ModeratedChat : MonoBehaviour
                 string hash = sb.ToString();
                 int colorIndex = Convert.ToInt32(hash.Substring(0, 1), 16) % colors.Length;
 
-                usernameColorMap[username] = unityColors[colorIndex];
+                usernameColorMap[userID] = unityColors[colorIndex];
             }
         }
-        return usernameColorMap[username];
+        return usernameColorMap[userID];
     }
 
     Transform CreateChatMessageContainer(ChatMessageEvent chatMessage, bool imagePrefab = false)
@@ -129,8 +129,6 @@ public class ModeratedChat : MonoBehaviour
         Transform chatMessageContainer = GameObject.Instantiate(
             imagePrefab ? ImageMessagePrefab : ChatMessagePrefab).transform;
 
-        // TODO: maybe username should be passed in, but the JavaScript version passes
-        // in the id, so let's match that for now...
         Color color = GetUsernameColor(chatMessage.user.id);
 
         UnityEngine.UI.Image userBubbleImage = chatMessageContainer.GetChild(0).GetComponent<UnityEngine.UI.Image>();

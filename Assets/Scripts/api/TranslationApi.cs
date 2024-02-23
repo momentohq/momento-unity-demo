@@ -115,7 +115,7 @@ public static class TranslationApi
 
             if (webRequest.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log("Got result:" + webRequest.downloadHandler.text);
+                Debug.Log("Got result (data length " + webRequest.downloadHandler.data.Length + "): " + webRequest.downloadHandler.text);
 
                 onResponse.Invoke(JsonUtility.FromJson<LatestChats>(webRequest.downloadHandler.text));
             }

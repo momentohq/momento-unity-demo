@@ -25,6 +25,10 @@ public static class MomentoWebApi
     public static ICredentialProvider authProvider = null;
     public static User user = null;
 
+    private const int maxRetries = 5;
+    private static int nRetries = 0;
+    private static bool tryToResubscribe = false;
+
     public static void Dispose()
     {
         cts?.Cancel();
@@ -78,12 +82,24 @@ public static class MomentoWebApi
     }
 
     public static async Task SubscribeToTopic(
-        string languageCode, 
+        string languageCode,
         Action onSubscribed,
         Action<TopicMessage> onItem,
         Action<TopicSubscribeResponse.Error> onSubscriptionError,
-        bool cacheActionsAndLanguage = true
+        bool cacheActionsAndLanguage = true,
+        bool retry = false
     ) {
+
+        if (retry)
+        {
+            if (nRetries >= maxRetries)
+            {
+                Debug.LogError("Reached maximum number of resubscribe tries, stopping...");
+                return;
+            }
+            nRetries++;
+        }
+
         string topicName = "chat-" + languageCode;
 
         // cache actions for reconnects
@@ -130,7 +146,8 @@ public static class MomentoWebApi
                                     case TopicMessage.Error error:
                                         Debug.LogError(String.Format("Received error message from topic: {0}",
                                             error.Message));
-                                        cts.Cancel(); // TODO restart subscription?
+                                        cts.Cancel();
+                                        tryToResubscribe = true;
                                         break;
                                 }
                             }
@@ -144,8 +161,6 @@ public static class MomentoWebApi
                         break;
                     case TopicSubscribeResponse.Error error:
                         Debug.LogError(String.Format("Error subscribing to a topic: {0}", error.Message));
-                        //textAreaString += "Error trying to connect to chat, cancelling...";
-                        //this.error = true;
                         onSubscriptionError.Invoke(error);
                         cts.Cancel();
                         break;
@@ -157,6 +172,14 @@ public static class MomentoWebApi
             Debug.Log("Topic subscription cancelled");
             client?.Dispose();
             topicClient?.Dispose();
+
+            if (tryToResubscribe)
+            {
+                tryToResubscribe = false;
+
+                await SubscribeToTopic(_languageCode, _onSubscribed, 
+                    _onItem, _onSubscriptionError, false, true);
+            }
         }
     }
 
@@ -179,14 +202,14 @@ public static class MomentoWebApi
 
             if ((response as CacheGetResponse.Error).ErrorCode == MomentoErrorCode.AUTHENTICATION_ERROR)
             {
-                // TODO: might want to put a limit on out many retries we do here...
                 Debug.LogError("token has likely expired, going to refresh subscription and retry fetching image from cache");
                 await SubscribeToTopic(_languageCode, async () =>
-                {
-                    Debug.Log("refresh of subscription worked, retrying cache fetch now...");
-                    _onSubscribed.Invoke();
-                    await GetImageMessage(imageId, onHit);
-                }, _onItem, _onSubscriptionError, false);
+                    {
+                        Debug.Log("refresh of subscription worked, retrying cache fetch now...");
+                        _onSubscribed.Invoke();
+                        await GetImageMessage(imageId, onHit);
+                    }, _onItem, _onSubscriptionError, false, true
+                );
             }
         }
     }
@@ -204,14 +227,14 @@ public static class MomentoWebApi
                 Debug.LogError(String.Format("Error publishing a message to the topic: {0}", error.Message));
                 if (error.ErrorCode == Momento.Sdk.Exceptions.MomentoErrorCode.AUTHENTICATION_ERROR)
                 {
-                    // TODO: might want to put a limit on out many retries we do here...
                     Debug.LogError("token has likely expired, going to refresh subscription and retry publish");
                     await SubscribeToTopic(targetLanguage, async () =>
-                    {
-                        Debug.Log("refresh of subscription worked, retrying publish now...");
-                        _onSubscribed.Invoke();
-                        await Publish(targetLanguage, message);
-                    }, _onItem, _onSubscriptionError, false);
+                        {
+                            Debug.Log("refresh of subscription worked, retrying publish now...");
+                            _onSubscribed.Invoke();
+                            await Publish(targetLanguage, message);
+                        }, _onItem, _onSubscriptionError, false, true
+                    );
                 }
                 break;
         }
@@ -231,7 +254,7 @@ public static class MomentoWebApi
         await Publish(sourceLanguage, JsonUtility.ToJson(pme));
     }
 
-    public static async Task SendImageMessage(string base64Image, string sourceLanguage)
+    public static async Task SendImageMessage(string base64Image, string sourceLanguage, Action<string> onError)
     {
         string imageId = "image-" + Guid.NewGuid().ToString();
         ICacheClient cacheClient = await GetCacheClient();
@@ -248,14 +271,18 @@ public static class MomentoWebApi
 
             if ((response as CacheSetResponse.Error).ErrorCode == MomentoErrorCode.AUTHENTICATION_ERROR)
             {
-                // TODO: might want to put a limit on out many retries we do here...
                 Debug.LogError("token has likely expired, going to refresh subscription and retry setting image in cache");
                 await SubscribeToTopic(_languageCode, async () =>
-                {
-                    Debug.Log("refresh of subscription worked, retrying cache image setting now...");
-                    _onSubscribed.Invoke();
-                    await SendImageMessage(base64Image, sourceLanguage);
-                }, _onItem, _onSubscriptionError, false);
+                    {
+                        Debug.Log("refresh of subscription worked, retrying cache image setting now...");
+                        _onSubscribed.Invoke();
+                        await SendImageMessage(base64Image, sourceLanguage, onError);
+                    }, _onItem, _onSubscriptionError, false, true
+                );
+            }
+            else if ((response as CacheSetResponse.Error).ErrorCode == MomentoErrorCode.LIMIT_EXCEEDED_ERROR)
+            {
+                onError.Invoke("Image file too big. Please try a smaller image.");
             }
         }
     }

@@ -49,44 +49,27 @@ public class TopicsTestHttp : MonoBehaviour
 
     private string authToken = Secrets.MomentoApiKey;
 
+    private HttpTopicClient httpTopicClient;
+
     // Start is called before the first frame update
     void Start()
     {
-        StartCoroutine(GetNextTopicMessage());
+        httpTopicClient = new HttpTopicClient("api.cache.cell-alpha-dev.preprod.a.momentohq.com", authToken);
+        httpTopicClient.PauseSubscription();
+        var coroutine = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
+        StartCoroutine(coroutine);
         nameInputTextField.ActivateInputField();
     }
 
-    IEnumerator GetNextTopicMessage(int sequence_number=1) {
-        while (true)
-        {
-            var uri = "https://api.cache.cell-alpha-dev.preprod.a.momentohq.com/topics/" + cacheName + "/" + TopicName +
-                "?sequence_number=" + sequence_number;
-            Debug.Log("getting " + uri);
-            UnityWebRequest www = UnityWebRequest.Get(uri);
-            www.SetRequestHeader("Authorization", authToken);
-            yield return www.SendWebRequest();
-            if (www.result != UnityWebRequest.Result.Success)
-            {
-                // TODO: handle error
-                Debug.Log(www.error);
-            }
-            else
-            {
-                var itemJson = www.downloadHandler.text;
-                var stuff = JObject.Parse(itemJson);
-                foreach (var item in stuff["items"]) {
-                    Debug.Log("Got item: " + item);
-                    if (item["discontinuity"] != null) {
-                        Debug.Log("Got discontinuity: " + item["discontinuity"]);
-                        sequence_number = (int)item["discontinuity"]["new_topic_sequence"];
-                    } else {
-                        Debug.Log("Got item #: " + item["item"]["topic_sequence_number"]);
-                        sequence_number = (int)item["item"]["topic_sequence_number"] + 1;
-                        textAreaString += item["item"]["value"]["text"] + "\n";
-                    }
-                }
-            }
-        }
+    void OnMessage(string message)
+    {
+        Debug.Log("Got message: " + message);
+        textAreaString += message + "\n";
+    }
+
+    void OnError(string error)
+    {
+        Debug.LogError("Got error: " + error);
     }
 
     public async Task Main()
@@ -108,6 +91,7 @@ public class TopicsTestHttp : MonoBehaviour
 
                 textAreaString = "";
                 loading = false;
+                httpTopicClient.ResumeSubscription();
 
                 while (true) {
                     Debug.Log("main loop pausing for 3 seconds");
@@ -126,13 +110,7 @@ public class TopicsTestHttp : MonoBehaviour
     {
         Debug.Log("In PublishMessage");
         string message = "<b>" + clientName + "</b>: " + inputTextField.text;
-        var request = UnityWebRequest.Post(
-            "https://api.cache.cell-alpha-dev.preprod.a.momentohq.com/topics/" + cacheName + "/" + TopicName,
-            message,
-            "text/plain"
-        );
-        request.SetRequestHeader("Authorization", authToken);
-        request.SendWebRequest();
+        httpTopicClient.Publish(cacheName, TopicName, message);
 
         inputTextField.text = "";
         inputTextField.ActivateInputField();

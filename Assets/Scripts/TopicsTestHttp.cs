@@ -51,10 +51,6 @@ public class TopicsTestHttp : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        httpTopicClient = new HttpTopicClient("api.cache.cell-alpha-dev.preprod.a.momentohq.com", authToken);
-        httpTopicClient.PauseSubscription();
-        var coroutine = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
-        StartCoroutine(coroutine);
         nameInputTextField.ActivateInputField();
     }
 
@@ -66,6 +62,7 @@ public class TopicsTestHttp : MonoBehaviour
     void OnError(string error)
     {
         Debug.LogError("Got error: " + error);
+        httpTopicClient.cancelSubscription(cacheName, TopicName);
     }
 
     public IEnumerator Main()
@@ -83,7 +80,6 @@ public class TopicsTestHttp : MonoBehaviour
         {
             textAreaString = "";
             loading = false;
-            httpTopicClient.ResumeSubscription();
 
             while (true) {
                 Debug.Log("main loop pausing for 3 seconds");
@@ -170,6 +166,9 @@ public class TopicsTestHttp : MonoBehaviour
                      && nameInputTextField.text != "")
             {
                 SetName();
+                httpTopicClient = new HttpTopicClient("api.cache.cell-alpha-dev.preprod.a.momentohq.com", authToken);
+                var coroutine = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
+                StartCoroutine(coroutine);
                 StartCoroutine(Main());
             }
         }

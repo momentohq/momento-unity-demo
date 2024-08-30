@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System;
 using System.Collections;
-using System.Threading;
+// using System.Threading;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
@@ -18,8 +18,8 @@ public class TopicsTestHttp : MonoBehaviour
     private const string AuthTokenEnvVar = "MOMENTO_AUTH_TOKEN";
     private const string TopicName = "example-topic";
     private const string cacheName = "Unity-Topics-Cache";
-    private CancellationTokenSource cts = null;
-    private ITopicClient topicClient = null;
+    // private CancellationTokenSource cts = null;
+    // private ITopicClient topicClient = null;
 
     // keep a reference to the chat UI canvas so we can unhide it after the user
     // types in their name
@@ -72,8 +72,9 @@ public class TopicsTestHttp : MonoBehaviour
         Debug.LogError("Got error: " + error);
     }
 
-    public async Task Main()
+    public IEnumerator Main()
     {
+        Debug.Log("In Main");
         textAreaString = "LOADING...";
         loading = true;
         var authProvider = ReadAuthToken();
@@ -81,29 +82,27 @@ public class TopicsTestHttp : MonoBehaviour
         // Set up the client
         using ICacheClient client =
             new CacheClient(Configurations.Laptop.V1(), authProvider, TimeSpan.FromSeconds(60));
-        await EnsureCacheExistsAsync(client, cacheName);
+        Task.Run(async() => await EnsureCacheExistsAsync(client, cacheName));
 
         try
         {
-            await Task.Run(async () =>
-            {
-                Debug.Log("In Main Task");
+            Debug.Log("In Main Task");
 
-                textAreaString = "";
-                loading = false;
-                httpTopicClient.ResumeSubscription();
+            textAreaString = "";
+            loading = false;
+            httpTopicClient.ResumeSubscription();
 
-                while (true) {
-                    Debug.Log("main loop pausing for 3 seconds");
-                    await Task.Delay(3000);
-                }
-            });
+            while (true) {
+                Debug.Log("main loop pausing for 3 seconds");
+                yield return new WaitForSeconds(3);
+            }
         }
         finally
         {
             Debug.Log("Disposing cache client...");
             client.Dispose();
         }
+        yield break;
     }
 
     public void PublishMessage()
@@ -118,15 +117,6 @@ public class TopicsTestHttp : MonoBehaviour
 
     private ICredentialProvider ReadAuthToken()
     {
-        try
-        {
-            return new EnvMomentoTokenProvider(AuthTokenEnvVar);
-        }
-        catch (InvalidArgumentException)
-        {
-            Debug.Log("Could not get auth token from environment variable");
-        }
-
         StringMomentoTokenProvider? authProvider = null;
         try
         {
@@ -166,8 +156,6 @@ public class TopicsTestHttp : MonoBehaviour
         nameCanvas.SetActive(false);
         messagingCanvas.SetActive(true);
         inputTextField.ActivateInputField();
-
-        Task.Run(async () => { await Main(); });
     }
 
     // Update is called once per frame
@@ -190,6 +178,7 @@ public class TopicsTestHttp : MonoBehaviour
                      && nameInputTextField.text != "")
             {
                 SetName();
+                StartCoroutine(Main());
             }
         }
     }
@@ -197,6 +186,6 @@ public class TopicsTestHttp : MonoBehaviour
     private void OnDestroy()
     {
         Debug.Log("Cancelling tasks...");
-        cts?.Cancel();
+        // cts?.Cancel();
     }
 }

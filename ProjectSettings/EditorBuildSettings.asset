@@ -14,7 +14,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/MomentoTopicsDemo-Coroutine.unity
     guid: 85eac99a2fe876e49aaf6a92d61ae939
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/MomentoTopicsDemo-ModeratedChat.unity
     guid: 2e6fc98887c29124192b6c5a8ffe83bb
+  - enabled: 1
+    path: Assets/Scenes/MomentoTopicsDemo - HttpPubSub.unity
+    guid: 6b504b71c505b41588a9250f9b44e320
   m_configObjects: {}

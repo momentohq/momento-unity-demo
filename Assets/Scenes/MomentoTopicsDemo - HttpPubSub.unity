@@ -2565,8 +2565,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: TopicsTest, Assembly-CSharp
+      - m_Target: {fileID: 963194232}
+        m_TargetAssemblyTypeName: TopicsTestHttp, Assembly-CSharp
         m_MethodName: PublishMessage
         m_Mode: 1
         m_Arguments:

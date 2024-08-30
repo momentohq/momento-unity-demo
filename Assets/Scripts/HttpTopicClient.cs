@@ -65,14 +65,14 @@ public class HttpTopicClient // : MonoBehaviour
 
     private IEnumerator Poll(string cacheName, string topicName, Action<string> messageCallback, Action<string> errorCallback)
     {
-        sequenceNumber = 1;
+        var sequenceNumber = sequenceNumbers[cacheName][topicName];
         while (true) {
             if (subscriptionPaused)
             {
                 yield return new WaitForSeconds(1);
                 continue;
             }
-            var uri = "https://" + endpoint + "/topics/" + cacheName + "/" + topicName + "?sequence_number=" + sequenceNumbers[cacheName][topicName];
+            var uri = "https://" + endpoint + "/topics/" + cacheName + "/" + topicName + "?sequence_number=" + sequenceNumber;
             Debug.Log("Polling " + uri);
             UnityWebRequest www = UnityWebRequest.Get(uri);
             www.SetRequestHeader("Authorization", authToken);
@@ -97,6 +97,7 @@ public class HttpTopicClient // : MonoBehaviour
                         sequenceNumber = (int)item["item"]["topic_sequence_number"] + 1;
                         messageCallback(item["item"]["value"]["text"].ToString());
                     }
+                    sequenceNumbers[cacheName][topicName] = sequenceNumber;
                 }
             }
         }

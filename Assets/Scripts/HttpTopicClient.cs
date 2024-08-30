@@ -11,13 +11,11 @@ public class HttpTopicClient // : MonoBehaviour
     private string endpoint;
     private string authToken;
 
-    private bool subscriptionPaused = false;
-
     private Action<string> messageCallback;
 
     private Action<string> errorCallback;
 
-    private Dictionary<string, Dictionary<string, int>> sequenceNumbers = new Dictionary<string, Dictionary<string, int>>();
+    private Dictionary<string, Dictionary<string, bool>> cancelledSubscriptions = new Dictionary<string, Dictionary<string, bool>>();
 
     public HttpTopicClient(string endpoint, string authToken){
         this.endpoint = endpoint;
@@ -33,46 +31,49 @@ public class HttpTopicClient // : MonoBehaviour
         );
         request.SetRequestHeader("Authorization", authToken);
         request.SendWebRequest();
+        while (!request.isDone)
+        {
+            Debug.Log("Publishing message...");
+        }
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError(request.error);
+        }
     }
 
     public IEnumerator Subscribe(string cacheName, string topicName, Action<string> onMessage, Action<string> onError)
     {
-        if (!sequenceNumbers.ContainsKey(cacheName))
-        {
-            sequenceNumbers[cacheName] = new Dictionary<string, int>();
-        }
-
-        if (!sequenceNumbers[cacheName].ContainsKey(topicName))
-        {
-            sequenceNumbers[cacheName][topicName] = 1;
-        }
-
         messageCallback = onMessage;
         errorCallback = onError;
 
         yield return Poll(cacheName, topicName, messageCallback, errorCallback);
     }
 
-    public void PauseSubscription()
+    public void cancelSubscription(string cacheName, string topicName)
     {
-        subscriptionPaused = true;
-    }
-
-    public void ResumeSubscription()
-    {
-        subscriptionPaused = false;
+        if (cancelledSubscriptions.ContainsKey(cacheName))
+        {
+            cancelledSubscriptions[cacheName][topicName] = true;
+        }
+        else
+        {
+            cancelledSubscriptions[cacheName] = new Dictionary<string, bool>();
+            cancelledSubscriptions[cacheName][topicName] = true;
+        }
     }
 
     private IEnumerator Poll(string cacheName, string topicName, Action<string> messageCallback, Action<string> errorCallback)
     {
-        var sequenceNumber = sequenceNumbers[cacheName][topicName];
+        var sequenceNumber = 1;
+        var baseUri = "https://" + endpoint + "/topics/" + cacheName + "/" + topicName + "?sequence_number=";
         while (true) {
-            if (subscriptionPaused)
+            if (cancelledSubscriptions.ContainsKey(cacheName) && cancelledSubscriptions[cacheName].ContainsKey(topicName))
             {
-                yield return new WaitForSeconds(1);
-                continue;
+                Debug.Log("Cancelling subscription to " + cacheName + "/" + topicName);
+                cancelledSubscriptions[cacheName].Remove(topicName);
+                yield break;
             }
-            var uri = "https://" + endpoint + "/topics/" + cacheName + "/" + topicName + "?sequence_number=" + sequenceNumber;
+            var uri = baseUri + sequenceNumber;
             Debug.Log("Polling " + uri);
             UnityWebRequest www = UnityWebRequest.Get(uri);
             www.SetRequestHeader("Authorization", authToken);
@@ -97,7 +98,6 @@ public class HttpTopicClient // : MonoBehaviour
                         sequenceNumber = (int)item["item"]["topic_sequence_number"] + 1;
                         messageCallback(item["item"]["value"]["text"].ToString());
                     }
-                    sequenceNumbers[cacheName][topicName] = sequenceNumber;
                 }
             }
         }

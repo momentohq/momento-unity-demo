@@ -9,7 +9,6 @@ using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System;
 using System.Collections;
-// using System.Threading;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
@@ -18,8 +17,6 @@ public class TopicsTestHttp : MonoBehaviour
     private const string AuthTokenEnvVar = "MOMENTO_AUTH_TOKEN";
     private const string TopicName = "example-topic";
     private const string cacheName = "Unity-Topics-Cache";
-    // private CancellationTokenSource cts = null;
-    // private ITopicClient topicClient = null;
 
     // keep a reference to the chat UI canvas so we can unhide it after the user
     // types in their name
@@ -63,7 +60,6 @@ public class TopicsTestHttp : MonoBehaviour
 
     void OnMessage(string message)
     {
-        Debug.Log("Got message: " + message);
         textAreaString += message + "\n";
     }
 
@@ -74,7 +70,6 @@ public class TopicsTestHttp : MonoBehaviour
 
     public IEnumerator Main()
     {
-        Debug.Log("In Main");
         textAreaString = "LOADING...";
         loading = true;
         var authProvider = ReadAuthToken();
@@ -86,8 +81,6 @@ public class TopicsTestHttp : MonoBehaviour
 
         try
         {
-            Debug.Log("In Main Task");
-
             textAreaString = "";
             loading = false;
             httpTopicClient.ResumeSubscription();
@@ -150,7 +143,6 @@ public class TopicsTestHttp : MonoBehaviour
 
     public void SetName()
     {
-        Debug.Log("User entered name " + nameInputTextField.text);
         clientName = nameInputTextField.text;
     
         nameCanvas.SetActive(false);
@@ -186,6 +178,5 @@ public class TopicsTestHttp : MonoBehaviour
     private void OnDestroy()
     {
         Debug.Log("Cancelling tasks...");
-        // cts?.Cancel();
     }
 }

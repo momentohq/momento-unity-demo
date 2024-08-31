@@ -6,7 +6,30 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
-public class HttpTopicClient // : MonoBehaviour
+public class HttpTopicSubscription
+{
+    private IEnumerator _poller;
+    private bool cancelled = false;
+
+    public bool Cancelled {
+        get { return cancelled; }
+    }
+
+    public void Cancel() {
+        Debug.Log("CANCELLING SUBSCRIPTION");
+        cancelled = true;
+    }
+
+    public HttpTopicSubscription() {}
+
+    public IEnumerator Poller
+    {
+        get { return _poller; }
+        set { _poller = value; }
+    }
+}
+
+public class HttpTopicClient
 {
     private string endpoint;
     private string authToken;
@@ -14,8 +37,6 @@ public class HttpTopicClient // : MonoBehaviour
     private Action<string> messageCallback;
 
     private Action<string> errorCallback;
-
-    private Dictionary<string, Dictionary<string, bool>> cancelledSubscriptions = new Dictionary<string, Dictionary<string, bool>>();
 
     public HttpTopicClient(string endpoint, string authToken){
         this.endpoint = endpoint;
@@ -31,54 +52,35 @@ public class HttpTopicClient // : MonoBehaviour
         );
         request.SetRequestHeader("Authorization", authToken);
         request.SendWebRequest();
-        while (!request.isDone)
-        {
-            Debug.Log("Publishing message...");
-        }
-        if (request.result != UnityWebRequest.Result.Success)
-        {
-            Debug.LogError(request.error);
-        }
     }
 
-    public IEnumerator Subscribe(string cacheName, string topicName, Action<string> onMessage, Action<string> onError)
+    public HttpTopicSubscription Subscribe(string cacheName, string topicName, Action<string> onMessage, Action<string> onError)
     {
         messageCallback = onMessage;
         errorCallback = onError;
-
-        yield return Poll(cacheName, topicName, messageCallback, errorCallback);
+        var sub = new HttpTopicSubscription();
+        sub.Poller = Poll(cacheName, topicName, onMessage, onError, sub);
+        return sub;
     }
 
-    public void cancelSubscription(string cacheName, string topicName)
-    {
-        if (cancelledSubscriptions.ContainsKey(cacheName))
-        {
-            cancelledSubscriptions[cacheName][topicName] = true;
-        }
-        else
-        {
-            cancelledSubscriptions[cacheName] = new Dictionary<string, bool>();
-            cancelledSubscriptions[cacheName][topicName] = true;
-        }
-    }
-
-    private IEnumerator Poll(string cacheName, string topicName, Action<string> messageCallback, Action<string> errorCallback)
+    private IEnumerator Poll(
+        string cacheName, string topicName, Action<string> messageCallback, Action<string> errorCallback, HttpTopicSubscription parent
+    )
     {
         var sequenceNumber = 1;
         var baseUri = "https://" + endpoint + "/topics/" + cacheName + "/" + topicName + "?sequence_number=";
         while (true) {
-            if (cancelledSubscriptions.ContainsKey(cacheName) && cancelledSubscriptions[cacheName].ContainsKey(topicName))
-            {
-                Debug.Log("Cancelling subscription to " + cacheName + "/" + topicName);
-                cancelledSubscriptions[cacheName].Remove(topicName);
-                yield break;
-            }
             var uri = baseUri + sequenceNumber;
             Debug.Log("Polling " + uri);
             UnityWebRequest www = UnityWebRequest.Get(uri);
             www.SetRequestHeader("Authorization", authToken);
             yield return www.SendWebRequest();
 
+            if (parent.Cancelled)
+            {
+                Debug.Log("subscription to " + cacheName + "/" + topicName + " has been cancelled.");
+                yield break;
+            }
             if (www.result != UnityWebRequest.Result.Success)
             {
                 errorCallback(www.error);

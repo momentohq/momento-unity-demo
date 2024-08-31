@@ -48,6 +48,8 @@ public class TopicsTestHttp : MonoBehaviour
 
     private HttpTopicClient httpTopicClient;
 
+    private HttpTopicSubscription subscription;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -62,7 +64,7 @@ public class TopicsTestHttp : MonoBehaviour
     void OnError(string error)
     {
         Debug.LogError("Got error: " + error);
-        httpTopicClient.cancelSubscription(cacheName, TopicName);
+        subscription.Cancel();
     }
 
     public IEnumerator Main()
@@ -167,8 +169,8 @@ public class TopicsTestHttp : MonoBehaviour
             {
                 SetName();
                 httpTopicClient = new HttpTopicClient("api.cache.cell-alpha-dev.preprod.a.momentohq.com", authToken);
-                var coroutine = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
-                StartCoroutine(coroutine);
+                subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
+                StartCoroutine(subscription.Poller);
                 StartCoroutine(Main());
             }
         }

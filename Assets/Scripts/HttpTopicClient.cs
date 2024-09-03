@@ -1,10 +1,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
+
+internal class Base64DecodedV1Token
+{
+    public string? api_key = null;
+    public string? endpoint = null;
+}
 
 public class HttpTopicSubscription
 {
@@ -34,12 +41,9 @@ public class HttpTopicClient
     private string endpoint;
     private string authToken;
 
-    private Action<string> messageCallback;
-
-    private Action<string> errorCallback;
-
-    public HttpTopicClient(string endpoint, string authToken){
-        this.endpoint = endpoint;
+    public HttpTopicClient(string authToken){
+        this.endpoint = GetEndpointFromKey(authToken);
+        Debug.Log("Using endpoint: " + this.endpoint);
         this.authToken = authToken;
     }
 
@@ -56,8 +60,6 @@ public class HttpTopicClient
 
     public HttpTopicSubscription Subscribe(string cacheName, string topicName, Action<string> onMessage, Action<string> onError)
     {
-        messageCallback = onMessage;
-        errorCallback = onError;
         var sub = new HttpTopicSubscription();
         sub.Poller = Poll(cacheName, topicName, onMessage, onError, sub);
         return sub;
@@ -103,5 +105,16 @@ public class HttpTopicClient
                 }
             }
         }
+    }
+
+    private string GetEndpointFromKey(string apiKey) {
+        var base64Bytes = System.Convert.FromBase64String(apiKey);
+        var theString = System.Text.Encoding.UTF8.GetString(base64Bytes);
+        var decodedToken = JsonConvert.DeserializeObject<Base64DecodedV1Token>(theString);
+        if (String.IsNullOrEmpty(decodedToken.api_key) || String.IsNullOrEmpty(decodedToken.endpoint))
+        {
+            throw new Exception("Malformed authentication token");
+        }
+        return "api.cache." + decodedToken.endpoint;
     }
 }

@@ -168,7 +168,7 @@ public class TopicsTestHttp : MonoBehaviour
                      && nameInputTextField.text != "")
             {
                 SetName();
-                httpTopicClient = new HttpTopicClient("api.cache.cell-alpha-dev.preprod.a.momentohq.com", authToken);
+                httpTopicClient = new HttpTopicClient(authToken);
                 subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
                 StartCoroutine(subscription.Poller);
                 StartCoroutine(Main());

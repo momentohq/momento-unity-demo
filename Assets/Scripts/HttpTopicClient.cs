@@ -100,7 +100,13 @@ public class HttpTopicClient
                     else
                     {
                         sequenceNumber = (int)item["item"]["topic_sequence_number"] + 1;
-                        messageCallback(item["item"]["value"]["text"].ToString());
+                        try {
+                            messageCallback(item["item"]["value"]["text"].ToString());
+                        } catch (System.NullReferenceException e) {
+                            byte[] obj = item["item"]["value"]["binary"].ToObject<byte[]>();
+                            string result = System.Text.Encoding.UTF8.GetString(obj);
+                            messageCallback(result);
+                        }
                     }
                 }
             }

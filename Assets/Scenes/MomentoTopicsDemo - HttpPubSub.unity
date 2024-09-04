@@ -1655,6 +1655,7 @@ GameObject:
   - component: {fileID: 963194226}
   - component: {fileID: 963194232}
   - component: {fileID: 963194231}
+  - component: {fileID: 963194233}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1769,6 +1770,21 @@ MonoBehaviour:
   inputTextField: {fileID: 1407861295}
   nameInputTextField: {fileID: 1789408045}
   eventSystem: {fileID: 986823302}
+--- !u!114 &963194233
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 963194225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd573eceb12f04593b54b7ef40859c23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  emojiGrid: {fileID: 1213975715}
+  inputTextField: {fileID: 1407861295}
+  emojiButtonPrefab: {fileID: 2081785413411728327, guid: a85c0c0b2e2f6ef44998bd866a377ae9, type: 3}
 --- !u!1 &986823300
 GameObject:
   m_ObjectHideFlags: 0

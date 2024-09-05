@@ -108,6 +108,15 @@ public class TopicsTestHttp : MonoBehaviour
 
     private ICredentialProvider ReadAuthToken()
     {
+        try
+        {
+            return new EnvMomentoTokenProvider(AuthTokenEnvVar);
+        }
+        catch (InvalidArgumentException)
+        {
+            Debug.Log("Could not get auth token from environment variable");
+        }
+
         StringMomentoTokenProvider? authProvider = null;
         try
         {

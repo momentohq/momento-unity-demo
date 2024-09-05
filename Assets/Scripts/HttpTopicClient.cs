@@ -49,10 +49,17 @@ public class HttpTopicClient
 
     public void Publish(string cacheName, string topicName, string message)
     {   
+        var contentType = "text/plain";
+        Debug.Log("publishing message: " + message);
+        if (message.Contains("<sprite"))
+        {
+            Debug.Log("sending sprite message as binary");
+            contentType = "application/octet-stream";
+        }
         var request = UnityWebRequest.Post(
             "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,
             message,
-            "text/plain"
+            contentType
         );
         request.SetRequestHeader("Authorization", authToken);
         request.SendWebRequest();

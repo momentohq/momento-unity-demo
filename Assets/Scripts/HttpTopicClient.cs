@@ -50,7 +50,6 @@ public class HttpTopicClient
     public void Publish(string cacheName, string topicName, string message)
     {   
         var contentType = "text/plain";
-        Debug.Log("publishing message: " + message);
         if (message.Contains("<sprite"))
         {
             Debug.Log("sending sprite message as binary");
@@ -107,11 +106,15 @@ public class HttpTopicClient
                     else
                     {
                         sequenceNumber = (int)item["item"]["topic_sequence_number"] + 1;
-                        try {
-                            messageCallback(item["item"]["value"]["text"].ToString());
-                        } catch (System.NullReferenceException e) {
-                            byte[] obj = item["item"]["value"]["binary"].ToObject<byte[]>();
-                            string result = System.Text.Encoding.UTF8.GetString(obj);
+                        var jsonDict = item["item"]["value"].ToObject<Dictionary<string, object>>();
+                        if (jsonDict.ContainsKey("text"))
+                        {
+                            messageCallback(jsonDict["text"].ToString());
+                        }
+                        else if (jsonDict.ContainsKey("binary"))
+                        {
+                            var obj = item["item"]["value"]["binary"].ToObject<byte[]>();
+                            var result = System.Text.Encoding.UTF8.GetString(obj);
                             messageCallback(result);
                         }
                     }

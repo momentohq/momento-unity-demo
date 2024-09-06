@@ -53,7 +53,18 @@ public class HttpTopicClient
         this.authToken = authToken;
     }
 
-    public void Publish(string cacheName, string topicName, string message, string contentType = MessageContentType.Text)
+    public void Publish(string cacheName, string topicName, byte[] message)
+    {
+        var messageString = System.Text.Encoding.UTF8.GetString(message);
+        DoPublish(cacheName, topicName, messageString, MessageContentType.Binary);
+    }
+
+    public void Publish(string cacheName, string topicName, string message)
+    {
+        DoPublish(cacheName, topicName, message, MessageContentType.Text);
+    }
+
+    private void DoPublish(string cacheName, string topicName, string message, string contentType)
     {   
         var request = UnityWebRequest.Post(
             "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,

@@ -102,11 +102,14 @@ public class TopicsTestHttp : MonoBehaviour
         string message = "<b>" + clientName + "</b>: " + inputTextField.text;
         if (message.Contains("<sprite"))
         {
-            contentType = MessageContentType.Binary;
+            // convert message to byte array
+            byte[] messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
             Debug.Log("sending sprite message as binary");
+            httpTopicClient.Publish(cacheName, TopicName, messageBytes);
+        } else {
+            Debug.Log("sending text message");
+            httpTopicClient.Publish(cacheName, TopicName, message);
         }
-        httpTopicClient.Publish(cacheName, TopicName, message, contentType);
-
         inputTextField.text = "";
         inputTextField.ActivateInputField();
     }

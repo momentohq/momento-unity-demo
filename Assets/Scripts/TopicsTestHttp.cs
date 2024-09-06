@@ -56,9 +56,39 @@ public class TopicsTestHttp : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
-    void OnMessage(string message)
+    // TextMessage is a helper class for handling text messages.
+    // Its string value is accessed via the Value property.
+    void OnMessageText(TextMessage message)
     {
-        textAreaString += message + "\n";
+        Debug.Log("Got text message");
+        textAreaString += message.Value + "\n";
+    }
+
+    // BinaryMessage is a helper class for handling binary messages.
+    // Its byte array value is accessed via the Value property.
+    void OnMessageBinary(BinaryMessage message)
+    {
+        Debug.Log("Got binary message");
+        // decode the message as a UTF-8 string, which is the encoding we're using in `PublishMessage()` below
+        var msgStr = System.Text.Encoding.UTF8.GetString(message.Value);
+        textAreaString += msgStr + "\n";
+    }
+
+    public void PublishMessage()
+    {
+        string message = "<b>" + clientName + "</b>: " + inputTextField.text;
+        if (message.Contains("<sprite"))
+        {
+            // convert message to byte array matching the encoding used in `OnMessageBinary()`
+            byte[] messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
+            Debug.Log("sending sprite message as binary");
+            httpTopicClient.Publish(cacheName, TopicName, messageBytes);
+        } else {
+            Debug.Log("sending text message");
+            httpTopicClient.Publish(cacheName, TopicName, message);
+        }
+        inputTextField.text = "";
+        inputTextField.ActivateInputField();
     }
 
     void OnError(string error)
@@ -93,25 +123,6 @@ public class TopicsTestHttp : MonoBehaviour
             Debug.Log("Disposing cache client...");
             client.Dispose();
         }
-        yield break;
-    }
-
-    public void PublishMessage()
-    {
-        string contentType = MessageContentType.Text;
-        string message = "<b>" + clientName + "</b>: " + inputTextField.text;
-        if (message.Contains("<sprite"))
-        {
-            // convert message to byte array
-            byte[] messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
-            Debug.Log("sending sprite message as binary");
-            httpTopicClient.Publish(cacheName, TopicName, messageBytes);
-        } else {
-            Debug.Log("sending text message");
-            httpTopicClient.Publish(cacheName, TopicName, message);
-        }
-        inputTextField.text = "";
-        inputTextField.ActivateInputField();
     }
 
     private ICredentialProvider ReadAuthToken()
@@ -186,7 +197,7 @@ public class TopicsTestHttp : MonoBehaviour
             {
                 SetName();
                 httpTopicClient = new HttpTopicClient(authToken);
-                subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
+                subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessageText, OnMessageBinary, OnError);
                 StartCoroutine(subscription.Poller);
                 StartCoroutine(Main());
             }

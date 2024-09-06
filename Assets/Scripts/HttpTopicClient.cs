@@ -7,16 +7,46 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
-struct MessageContentType
+public class BinaryMessage
 {
-    public const string Text = "text/plain";
-    public const string Binary = "application/octet-stream";
+    private byte[] bytes;
+
+    public BinaryMessage(byte[] bytes)
+    {
+        this.bytes = bytes;
+    }
+
+    public byte[] Value
+    {
+        get { return bytes; }
+    }
+}
+
+public class TextMessage
+{
+    private string text;
+
+    public TextMessage(string text)
+    {
+        this.text = text;
+    }
+
+    public string Value
+    {
+        get { return text; }
+    }
 }
 
 internal class Base64DecodedV1Token
 {
     public string? api_key = null;
     public string? endpoint = null;
+}
+
+struct MessageContentType
+{
+    internal const string Text = "text/plain";
+    internal const string Binary = "application/octet-stream";
 }
 
 public class HttpTopicSubscription
@@ -55,17 +85,21 @@ public class HttpTopicClient
 
     public void Publish(string cacheName, string topicName, byte[] message)
     {
-        var messageString = System.Text.Encoding.UTF8.GetString(message);
-        DoPublish(cacheName, topicName, messageString, MessageContentType.Binary);
+        Debug.Log("Publishing binary message");
+        UnityWebRequest request = new UnityWebRequest(
+            "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,
+            "POST"
+        );
+        request.SetRequestHeader("Content-Type", MessageContentType.Binary);
+        request.uploadHandler = new UploadHandlerRaw(message);
+        request.uploadHandler.contentType = MessageContentType.Binary;
+        request.SetRequestHeader("Authorization", authToken);
+        request.SendWebRequest();
     }
 
     public void Publish(string cacheName, string topicName, string message)
     {
-        DoPublish(cacheName, topicName, message, MessageContentType.Text);
-    }
-
-    private void DoPublish(string cacheName, string topicName, string message, string contentType)
-    {   
+        var contentType = MessageContentType.Text;
         var request = UnityWebRequest.Post(
             "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,
             message,
@@ -75,15 +109,18 @@ public class HttpTopicClient
         request.SendWebRequest();
     }
 
-    public HttpTopicSubscription Subscribe(string cacheName, string topicName, Action<string> onMessage, Action<string> onError)
+    public HttpTopicSubscription Subscribe(
+        string cacheName, string topicName, Action<TextMessage> onMessageText, Action<BinaryMessage> onMessageBinary, Action<string> onError
+    )
     {
         var sub = new HttpTopicSubscription();
-        sub.Poller = Poll(cacheName, topicName, onMessage, onError, sub);
+        sub.Poller = Poll(cacheName, topicName, onMessageText, onMessageBinary, onError, sub);
         return sub;
     }
 
     private IEnumerator Poll(
-        string cacheName, string topicName, Action<string> messageCallback, Action<string> errorCallback, HttpTopicSubscription parent
+        string cacheName, string topicName, Action<TextMessage> messageCallbackText, Action<BinaryMessage> messageCallbackBinary, 
+        Action<string> errorCallback, HttpTopicSubscription parent
     )
     {
         var sequenceNumber = 1;
@@ -120,13 +157,21 @@ public class HttpTopicClient
                         var jsonDict = item["item"]["value"].ToObject<Dictionary<string, object>>();
                         if (jsonDict.ContainsKey("text"))
                         {
-                            messageCallback(jsonDict["text"].ToString());
+                            var message = new TextMessage(jsonDict["text"].ToString());
+                            messageCallbackText(message);
                         }
                         else if (jsonDict.ContainsKey("binary"))
                         {
                             var obj = item["item"]["value"]["binary"].ToObject<byte[]>();
-                            var result = System.Text.Encoding.UTF8.GetString(obj);
-                            messageCallback(result);
+                            var theBytes = new List<int>();
+                            for (int i = 0; i < obj.Length; i++)
+                            {
+                                theBytes.Add((int)obj[i]);
+                            }
+                            var bytesString = JsonConvert.SerializeObject(theBytes);
+                            Debug.Log("got byte array: " + bytesString);
+                            var message = new BinaryMessage(obj);
+                            messageCallbackBinary(message);
                         }
                     }
                 }

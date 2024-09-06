@@ -56,6 +56,12 @@ public class TopicsTestHttp : MonoBehaviour
         nameInputTextField.ActivateInputField();
     }
 
+    void OnError(string error)
+    {
+        Debug.LogError("Got error: " + error);
+        subscription.Cancel();
+    }
+
     // TextMessage is a helper class for handling text messages.
     // Its string value is accessed via the Value property.
     void OnMessageText(TextMessage message)
@@ -91,12 +97,6 @@ public class TopicsTestHttp : MonoBehaviour
         }
         inputTextField.text = "";
         inputTextField.ActivateInputField();
-    }
-
-    void OnError(string error)
-    {
-        Debug.LogError("Got error: " + error);
-        subscription.Cancel();
     }
 
     public IEnumerator Main()
@@ -169,7 +169,7 @@ public class TopicsTestHttp : MonoBehaviour
         }
     }
 
-    public void SetName()
+    public void BeginChat()
     {
         clientName = nameInputTextField.text;
     
@@ -202,7 +202,7 @@ public class TopicsTestHttp : MonoBehaviour
             else if ((eventSystem.currentSelectedGameObject == nameInputTextField.gameObject || nameInputTextField.isFocused)
                      && nameInputTextField.text != "")
             {
-                SetName();
+                BeginChat();
             }
         }
     }

@@ -3516,7 +3516,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 963194232}
         m_TargetAssemblyTypeName: TopicsTestHttp, Assembly-CSharp
-        m_MethodName: SetName
+        m_MethodName: BeginChat
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

@@ -163,13 +163,6 @@ public class HttpTopicClient
                         else if (jsonDict.ContainsKey("binary"))
                         {
                             var obj = item["item"]["value"]["binary"].ToObject<byte[]>();
-                            var theBytes = new List<int>();
-                            for (int i = 0; i < obj.Length; i++)
-                            {
-                                theBytes.Add((int)obj[i]);
-                            }
-                            var bytesString = JsonConvert.SerializeObject(theBytes);
-                            Debug.Log("got byte array: " + bytesString);
                             var message = new BinaryMessage(obj);
                             messageCallbackBinary(message);
                         }

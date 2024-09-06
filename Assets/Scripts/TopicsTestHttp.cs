@@ -62,22 +62,22 @@ public class TopicsTestHttp : MonoBehaviour
         subscription.Cancel();
     }
 
-    // TextMessage is a helper class for handling text messages.
-    // Its string value is accessed via the Value property.
-    void OnMessageText(TextMessage message)
+    void OnMessage(HttpTopicMessage message)
     {
-        Debug.Log("Got text message");
-        textAreaString += message.Value + "\n";
-    }
-
-    // BinaryMessage is a helper class for handling binary messages.
-    // Its byte array value is accessed via the Value property.
-    void OnMessageBinary(BinaryMessage message)
-    {
-        Debug.Log("Got binary message");
-        // decode the message as a UTF-8 string, which is the encoding we're using in `PublishMessage()` below
-        var msgStr = System.Text.Encoding.UTF8.GetString(message.Value);
-        textAreaString += msgStr + "\n";
+        Debug.Log("in switch");
+        switch (message)
+        {
+            case TextMessage msg:
+                Debug.Log("Got text message");
+                textAreaString += msg.Value + "\n";
+                break;
+            case BinaryMessage msg:
+                Debug.Log("Got binary message");
+                // decode the message as a UTF-8 string, which is the encoding we're using in `PublishMessage()` below
+                var msgStr = System.Text.Encoding.UTF8.GetString(msg.Value);
+                textAreaString += msgStr + "\n";
+                break;
+        }
     }
 
     public void PublishMessage()
@@ -85,7 +85,7 @@ public class TopicsTestHttp : MonoBehaviour
         string message = "<b>" + clientName + "</b>: " + inputTextField.text;
         if (message.Contains("<sprite"))
         {
-            // Convert message to byte array matching the encoding used in `OnMessageBinary()`.
+            // Convert message to byte array matching the encoding used in `OnMessage` for binary messages.
             // This is just an example of sending binary data, and is not actually necessary
             // for sending sprites.
             byte[] messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
@@ -178,7 +178,7 @@ public class TopicsTestHttp : MonoBehaviour
         inputTextField.ActivateInputField();
 
         httpTopicClient = new HttpTopicClient(authToken);
-        subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessageText, OnMessageBinary, OnError);
+        subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessage, OnError);
         StartCoroutine(subscription.Poller);
         StartCoroutine(Main());
     }

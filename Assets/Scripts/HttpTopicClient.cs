@@ -7,7 +7,10 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
-public class BinaryMessage
+
+public class HttpTopicMessage {}
+
+public class BinaryMessage : HttpTopicMessage
 {
     private byte[] bytes;
 
@@ -22,7 +25,7 @@ public class BinaryMessage
     }
 }
 
-public class TextMessage
+public class TextMessage : HttpTopicMessage
 {
     private string text;
 
@@ -110,17 +113,16 @@ public class HttpTopicClient
     }
 
     public HttpTopicSubscription Subscribe(
-        string cacheName, string topicName, Action<TextMessage> onMessageText, Action<BinaryMessage> onMessageBinary, Action<string> onError
+        string cacheName, string topicName, Action<HttpTopicMessage> onMessage, Action<string> onError
     )
     {
         var sub = new HttpTopicSubscription();
-        sub.Poller = Poll(cacheName, topicName, onMessageText, onMessageBinary, onError, sub);
+        sub.Poller = Poll(cacheName, topicName, onMessage, onError, sub);
         return sub;
     }
 
     private IEnumerator Poll(
-        string cacheName, string topicName, Action<TextMessage> messageCallbackText, Action<BinaryMessage> messageCallbackBinary, 
-        Action<string> errorCallback, HttpTopicSubscription parent
+        string cacheName, string topicName, Action<HttpTopicMessage> messageCallback, Action<string> errorCallback, HttpTopicSubscription parent
     )
     {
         var sequenceNumber = 1;
@@ -158,13 +160,13 @@ public class HttpTopicClient
                         if (jsonDict.ContainsKey("text"))
                         {
                             var message = new TextMessage(jsonDict["text"].ToString());
-                            messageCallbackText(message);
+                            messageCallback(message);
                         }
                         else if (jsonDict.ContainsKey("binary"))
                         {
                             var obj = item["item"]["value"]["binary"].ToObject<byte[]>();
                             var message = new BinaryMessage(obj);
-                            messageCallbackBinary(message);
+                            messageCallback(message);
                         }
                     }
                 }

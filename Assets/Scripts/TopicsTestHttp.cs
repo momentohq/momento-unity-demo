@@ -98,9 +98,14 @@ public class TopicsTestHttp : MonoBehaviour
 
     public void PublishMessage()
     {
-        Debug.Log("In PublishMessage");
+        string contentType = MessageContentType.Text;
         string message = "<b>" + clientName + "</b>: " + inputTextField.text;
-        httpTopicClient.Publish(cacheName, TopicName, message);
+        if (message.Contains("<sprite"))
+        {
+            contentType = MessageContentType.Binary;
+            Debug.Log("sending sprite message as binary");
+        }
+        httpTopicClient.Publish(cacheName, TopicName, message, contentType);
 
         inputTextField.text = "";
         inputTextField.ActivateInputField();

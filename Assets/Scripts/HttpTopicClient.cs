@@ -7,6 +7,12 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
+struct MessageContentType
+{
+    public const string Text = "text/plain";
+    public const string Binary = "application/octet-stream";
+}
+
 internal class Base64DecodedV1Token
 {
     public string? api_key = null;
@@ -47,14 +53,8 @@ public class HttpTopicClient
         this.authToken = authToken;
     }
 
-    public void Publish(string cacheName, string topicName, string message)
+    public void Publish(string cacheName, string topicName, string message, string contentType = MessageContentType.Text)
     {   
-        var contentType = "text/plain";
-        if (message.Contains("<sprite"))
-        {
-            Debug.Log("sending sprite message as binary");
-            contentType = "application/octet-stream";
-        }
         var request = UnityWebRequest.Post(
             "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,
             message,

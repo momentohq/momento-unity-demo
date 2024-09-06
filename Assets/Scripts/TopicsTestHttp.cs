@@ -79,7 +79,9 @@ public class TopicsTestHttp : MonoBehaviour
         string message = "<b>" + clientName + "</b>: " + inputTextField.text;
         if (message.Contains("<sprite"))
         {
-            // convert message to byte array matching the encoding used in `OnMessageBinary()`
+            // Convert message to byte array matching the encoding used in `OnMessageBinary()`.
+            // This is just an example of sending binary data, and is not actually necessary
+            // for sending sprites.
             byte[] messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
             Debug.Log("sending sprite message as binary");
             httpTopicClient.Publish(cacheName, TopicName, messageBytes);

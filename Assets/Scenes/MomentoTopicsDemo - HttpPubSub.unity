@@ -1782,9 +1782,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd573eceb12f04593b54b7ef40859c23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  emojiGrid: {fileID: 1213975715}
-  inputTextField: {fileID: 1407861295}
-  emojiButtonPrefab: {fileID: 2081785413411728327, guid: a85c0c0b2e2f6ef44998bd866a377ae9, type: 3}
 --- !u!1 &986823300
 GameObject:
   m_ObjectHideFlags: 0
@@ -3517,8 +3514,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: TopicsTest, Assembly-CSharp
+      - m_Target: {fileID: 963194232}
+        m_TargetAssemblyTypeName: TopicsTestHttp, Assembly-CSharp
         m_MethodName: SetName
         m_Mode: 1
         m_Arguments:

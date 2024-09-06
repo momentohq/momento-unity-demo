@@ -176,6 +176,11 @@ public class TopicsTestHttp : MonoBehaviour
         nameCanvas.SetActive(false);
         messagingCanvas.SetActive(true);
         inputTextField.ActivateInputField();
+
+        httpTopicClient = new HttpTopicClient(authToken);
+        subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessageText, OnMessageBinary, OnError);
+        StartCoroutine(subscription.Poller);
+        StartCoroutine(Main());
     }
 
     // Update is called once per frame
@@ -198,10 +203,6 @@ public class TopicsTestHttp : MonoBehaviour
                      && nameInputTextField.text != "")
             {
                 SetName();
-                httpTopicClient = new HttpTopicClient(authToken);
-                subscription = httpTopicClient.Subscribe(cacheName, TopicName, OnMessageText, OnMessageBinary, OnError);
-                StartCoroutine(subscription.Poller);
-                StartCoroutine(Main());
             }
         }
     }

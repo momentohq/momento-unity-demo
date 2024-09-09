@@ -182,7 +182,7 @@ public class TopicsTestCoroutine : MonoBehaviour
             Debug.Log("Could not get auth token from environment variable");
         }
 
-        string authToken = "ADD_YOUR_TOKEN_HERE";
+        string authToken = Secrets.MomentoApiKey;
         StringMomentoTokenProvider? authProvider = null;
         try
         {

@@ -6,9 +6,10 @@ Several chat demos of Momento's Topics using Unity 2022.3.9f1.
 1. Install Unity 2022.3.9f1
 2. Clone this repository
 3. Download the latest MomentoSdkUnity-x.y.z.zip from https://github.com/momentohq/client-sdk-dotnet/releases and extract its contents into the folder `Assets/MomentoSdkUnity/`. This example demo requires [client-dotnet-sdk release v1.30.1](https://github.com/momentohq/client-sdk-dotnet/releases/tag/v1.30.1), or newer.
-4. Start Unity and open this folder
-5. Open the `Assets/Scenes/MomentoTopicsDemo-ModeratedChat.unity` scene file
-6. Hit the play button to run inside the Unity Editor
+4. Rename `Assets/Scripts/secrets/Secrets.cs.template` to`Secrets.cs` and paste your auth token inside it. This file is separate to discourage committing auth tokens.
+5. Start Unity and open this folder
+6. Open the `Assets/Scenes/MomentoTopicsDemo-ModeratedChat.unity` scene file
+7. Hit the play button to run inside the Unity Editor
 
 If needed, add a firewall rule to allow your Unity or your built executable to access your network.
 

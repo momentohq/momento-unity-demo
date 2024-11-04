@@ -125,10 +125,11 @@ public class HttpTopicClient
         string cacheName, string topicName, Action<HttpTopicMessage> messageCallback, Action<string> errorCallback, HttpTopicSubscription parent
     )
     {
-        var sequenceNumber = 1;
-        var baseUri = "https://" + endpoint + "/topics/" + cacheName + "/" + topicName + "?sequence_number=";
+        var sequenceNumber = 0;
+        var sequencePage = 0;
+        var baseUri = $"https://{endpoint}/topics/{cacheName}/{topicName}";
         while (true) {
-            var uri = baseUri + sequenceNumber;
+            var uri = baseUri + $"?sequence_number={sequenceNumber}&sequence_page={sequencePage}";
             Debug.Log("Polling " + uri);
             UnityWebRequest www = UnityWebRequest.Get(uri);
             www.SetRequestHeader("Authorization", authToken);
@@ -152,10 +153,12 @@ public class HttpTopicClient
                     if (item["discontinuity"] != null)
                     {
                         sequenceNumber = (int)item["discontinuity"]["new_topic_sequence"];
+                        sequencePage = item["discontinuity"]["new_sequence_page"]?.Value<int>() ?? 0;
                     }
                     else
                     {
                         sequenceNumber = (int)item["item"]["topic_sequence_number"] + 1;
+                        sequencePage = item["item"]["sequence_page"]?.Value<int>() ?? 0;
                         var jsonDict = item["item"]["value"].ToObject<Dictionary<string, object>>();
                         if (jsonDict.ContainsKey("text"))
                         {

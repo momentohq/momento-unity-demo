@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.Networking;
 
 
@@ -86,10 +85,10 @@ public class HttpTopicClient
         this.authToken = authToken;
     }
 
-    public void Publish(string cacheName, string topicName, byte[] message)
+    public IEnumerator Publish(string cacheName, string topicName, byte[] message)
     {
         Debug.Log("Publishing binary message");
-        UnityWebRequest request = new UnityWebRequest(
+        using var request = new UnityWebRequest(
             "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,
             "POST"
         );
@@ -97,19 +96,30 @@ public class HttpTopicClient
         request.uploadHandler = new UploadHandlerRaw(message);
         request.uploadHandler.contentType = MessageContentType.Binary;
         request.SetRequestHeader("Authorization", authToken);
-        request.SendWebRequest();
+        yield return request.SendWebRequest();
+        
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError("Publish failed: " + request.error);
+        }
     }
 
-    public void Publish(string cacheName, string topicName, string message)
+    public IEnumerator Publish(string cacheName, string topicName, string message)
     {
+        Debug.Log("Publishing string message");
         var contentType = MessageContentType.Text;
-        var request = UnityWebRequest.Post(
+        using var request = UnityWebRequest.Post(
             "https://" + endpoint + "/topics/" + cacheName + "/" + topicName,
             message,
             contentType
         );
         request.SetRequestHeader("Authorization", authToken);
-        request.SendWebRequest();
+        yield return request.SendWebRequest();
+        
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError("Publish failed: " + request.error);
+        }
     }
 
     public HttpTopicSubscription Subscribe(
@@ -130,7 +140,7 @@ public class HttpTopicClient
         while (true) {
             var uri = baseUri + sequenceNumber;
             Debug.Log("Polling " + uri);
-            UnityWebRequest www = UnityWebRequest.Get(uri);
+            using var www = UnityWebRequest.Get(uri);
             www.SetRequestHeader("Authorization", authToken);
             yield return www.SendWebRequest();
 

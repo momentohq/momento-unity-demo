@@ -5,12 +5,10 @@ using Momento.Sdk.Auth;
 using Momento.Sdk.Config;
 using Momento.Sdk.Exceptions;
 using Momento.Sdk.Responses;
-using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System;
 using System.Collections;
 using UnityEngine.EventSystems;
-using UnityEngine.Networking;
 
 public class TopicsTestHttp : MonoBehaviour
 {
@@ -90,10 +88,10 @@ public class TopicsTestHttp : MonoBehaviour
             // for sending sprites.
             byte[] messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
             Debug.Log("sending sprite message as binary");
-            httpTopicClient.Publish(cacheName, TopicName, messageBytes);
+            StartCoroutine(httpTopicClient.Publish(cacheName, TopicName, messageBytes));
         } else {
             Debug.Log("sending text message");
-            httpTopicClient.Publish(cacheName, TopicName, message);
+            StartCoroutine(httpTopicClient.Publish(cacheName, TopicName, message));
         }
         inputTextField.text = "";
         inputTextField.ActivateInputField();
